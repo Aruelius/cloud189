@@ -6,7 +6,13 @@
 ~~~shell
 pip install -r requirements.txt
 ~~~
-
+3. 配置
+打开``189.py``, 找到以下两行  
+~~~python
+username = ""
+password = ""
+~~~
+修改为自己的天翼云盘手机号和密码即可  
 ### 二：使用
 1. 查看**根目录**的文件  
 ~~~shell
