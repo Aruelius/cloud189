@@ -1,4 +1,4 @@
-# cloud189 CLI
+# Cloud189 CLI
 ![alt cloud189](./src/view.png "使用图片")
 ### 一：准备
 1. Python 版本 >= 3.6
