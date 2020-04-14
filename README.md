@@ -26,7 +26,11 @@ python 189.py upload 文件
 ~~~shell
 python 189.py download 文件ID # 文件ID 第一步看
 ~~~  
-4. 删除**根目录**的文件  
+4. 分享**根目录**的文件  
+~~~shell
+python 189.py share 文件ID # 文件ID 第一步看
+~~~  
+5. 删除**根目录**的文件  
 ~~~shell
 python 189.py delete 文件ID # 文件ID 第一步看
 ~~~
