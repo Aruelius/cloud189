@@ -156,6 +156,32 @@ def get_file_size_str(filesize: int) -> str:
         return f"{round(filesize/1024**4, 2)}TB"
     else: return f"{filesize}Bytes"
 
+def share_file(fileId):
+    expireTime_dict = {
+        "1": "1",
+        "2": "7",
+        "3": "2099"
+    }
+    expireTime = input("请选择分享有效期：1、1天，2、7天，3、永久：")
+    withAccessCode = input("请选择分享形式：1、私密分享，2、公开分享：")
+    if withAccessCode == "1":
+        url = "https://cloud.189.cn/v2/privateLinkShare.action"
+        params = {
+            "fileId": fileId,
+            "expireTime": expireTime_dict[expireTime],
+            "withAccessCode": withAccessCode
+        }
+    else:
+        url = "https://cloud.189.cn/v2/createOutLinkShare.action"
+        params = {
+            "fileId": fileId,
+            "expireTime": expireTime_dict[expireTime]
+        }
+    r = session.get(url=url, params=params).json()
+    msg = f"链接：{r['shortShareUrl']} "
+    msg += "" if not r.get("accessCode") else f"访问码：{r['accessCode']}"
+    print(msg)
+
 def get_files():
     r = session.get(
         url="https://cloud.189.cn/v2/listFiles.action",
@@ -253,9 +279,21 @@ if __name__ == "__main__":
     username = ""
     password = ""
     login()
-    if sys.argv[1] == "upload":
-        upload(sys.argv[2])
-    elif sys.argv[1] in ["delete", "download"]:
-        task(sys.argv[1], sys.argv[2])
-    elif sys.argv[1] == "list":
-        get_files()
+    try:
+        if sys.argv[1] == "upload":
+            upload(int(sys.argv[2]))
+        elif sys.argv[1] in ["delete", "download"]:
+            task(sys.argv[1], int(sys.argv[2]))
+        elif sys.argv[1] == "list":
+            get_files()
+        elif sys.argv[1] == "share":
+            share_file(int(sys.argv[2]))
+    except IndexError:
+        print("请输入正确的参数:\n \
+            upload [filename]: 上传文件\n \
+            download [file id]: 下载文件\n \
+            list: 列出根目录文件及文件夹\n \
+            share: 分享文件\n \
+            delete [file id]: 删除文件")
+    except ValueError:
+        print("文件ID输入错误")
