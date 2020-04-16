@@ -281,7 +281,7 @@ if __name__ == "__main__":
     login()
     try:
         if sys.argv[1] == "upload":
-            upload(int(sys.argv[2]))
+            upload(sys.argv[2])
         elif sys.argv[1] in ["delete", "download"]:
             task(sys.argv[1], int(sys.argv[2]))
         elif sys.argv[1] == "list":
