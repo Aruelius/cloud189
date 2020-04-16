@@ -261,12 +261,14 @@ def task(task_type, fileid):
             print("删除成功！")
 
     def download(url, filename, filepath="./"):
-        r = session.get(url, stream=True)
-        with open(filepath+filename, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1024**2):
-                f.write(chunk)
-            f.close()
-        print(f"{filename} 下载完成!")
+        print(f"下载链接：{url}")
+        if input("需要继续下载吗？ 1、继续下载，2、取消下载") == "1":
+            r = session.get(url, stream=True)
+            with open(filepath+filename, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1024**2):
+                    f.write(chunk)
+                f.close()
+            print(f"{filename} 下载完成!")
 
     if task_type == "delete":
         get_file_info()
