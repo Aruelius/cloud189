@@ -203,8 +203,12 @@ def get_files():
 def upload(filePath):
     session.headers["Referer"] = "https://cloud.189.cn"
     def get_upload_url():
-        r = session.post("https://cloud.189.cn/v2/getUserUploadUrl.action")
-        return "https:" + r.json()["uploadUrl"]
+        try:
+            r = session.post("https://cloud.189.cn/v2/getUserUploadUrl.action")
+            return "https:" + r.json()["uploadUrl"]
+        except:
+            print("登录失效，请重新登录")
+            os.remove(f"./.{username}")
     
     def get_session_key():
         r = session.get(
