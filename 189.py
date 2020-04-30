@@ -292,7 +292,13 @@ if __name__ == "__main__":
     login()
     try:
         if sys.argv[1] == "upload":
-            upload(sys.argv[2])
+            if os.path.isdir(sys.argv[2]):
+                [upload(f"{os.path.abspath(sys.argv[2])}/{file}")
+                for file in os.listdir(sys.argv[2])]
+            elif os.path.isfile(sys.argv[2]):
+                upload(sys.argv[2])
+            else:
+                print("未知类型文件")
         elif sys.argv[1] in ["delete", "download"]:
             task(sys.argv[1], int(sys.argv[2]))
         elif sys.argv[1] == "list":
