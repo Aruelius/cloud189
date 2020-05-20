@@ -1,3 +1,7 @@
+certifi
+chardet
+idna
+pyreadline
 requests
 requests_toolbelt
 rsa
