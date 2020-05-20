@@ -157,10 +157,10 @@ class Cloud189(object):
                 "fileId": fid,
                 "expireTime": expireTime_dict[expireTime]
             }
-        r = self._get(url=url, params=params).json()
-        msg = f"链接：{r['shortShareUrl']} "
-        msg += "" if not r.get("accessCode") else f"访问码：{r['accessCode']}"
-        print(msg)
+        resp = self._get(url=url, params=params).json()
+        share_url = resp['shortShareUrl']
+        pwd = resp['accessCode'] if 'accessCode' in resp else ''
+        return share_url, pwd
 
     def get_file_list(self, fid) -> (FolderList, FolderList):
         file_list = FolderList()

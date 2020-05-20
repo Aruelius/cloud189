@@ -313,45 +313,23 @@ class Commander:
         # uploader.set_target(self._work_id, self._work_name)
         # self._task_mgr.add_task(uploader)
 
-    def share(self, fid):
+    def share(self, name):
         """分享文件"""
-        if fid:
-            self._disk.share_file(fid)
-        # if file := self._file_list.find_by_name(name):  # 文件
-        #     inf = self._disk.get_file_info_by_id(file.id)
-        #     if inf.code != Cloud189.SUCCESS:
-        #         error('获取文件信息出错')
-        #         return None
-
-        #     print("-" * 50)
-        #     print(f"文件名   : {name}")
-        #     print(f"提取码   : {inf.pwd or '无'}")
-        #     print(f"文件大小 : {inf.size}")
-        #     print(f"上传时间 : {inf.time}")
-        #     print(f"分享链接 : {inf.url}")
-        #     print(f"描述信息 : {inf.desc or '无'}")
-        #     print(f"下载直链 : {inf.durl or '无'}")
-        #     print("-" * 50)
-
-        # elif folder := self._dir_list.find_by_name(name):  # 文件夹
-        #     inf = self._disk.get_folder_info_by_id(folder.id)
-        #     if inf.code != Cloud189.SUCCESS:
-        #         print('ERROR : 获取文件夹信息出错')
-        #         return None
-
-        #     print("-" * 80)
-        #     print(f"文件夹名 : {name}")
-        #     print(f"提取码   : {inf.folder.pwd or '无'}")
-        #     print(f"分享链接 : {inf.folder.url}")
-        #     print(f"描述信息 : {inf.folder.desc or '无'}")
-        #     print("-" * 80)
-
-        #     for file in inf.files:
-        #         print("+ {0:<12}{1:<9}{2}\t{3}".format(file.time, file.size, file.url, file.name))
-        #     if len(inf.files) != 0:
-        #         print("-" * 80)
-        # else:
-        #     error(f"文件(夹)不存在: {name}")
+        if file := self._file_list.find_by_name(name):
+            share_url, pwd = self._disk.share_file(file.id)
+            if share_url:
+                print("-" * 50)
+                print(f"{'文件夹名' if file.isFolder else '文件名  '} : {name}")
+                print(f"上传时间 : {file.time}")
+                if not file.isFolder:
+                    print(f"文件大小 : {get_file_size_str(file.size)}")
+                print(f"分享链接 : {share_url}")
+                print(f"提取码   : {pwd or '无'}")
+                print("-" * 50)
+            else:
+                print('ERROR : 获取文件(夹)信息出错！')
+        else:
+            error(f"文件(夹)不存在: {name}")
 
     # def passwd(self, name):
     #     """设置文件(夹)提取码"""
@@ -464,8 +442,7 @@ class Commander:
                       'setsize', 'update', 'xghost', 'setdelay', 'setpasswd']
         cmd_with_arg = ['cd', 'desc', 'down', 'jobs', 'mkdir', 'mv', 'passwd', 'rename', 'rm', 'share', 'upload']
 
-        # choice_list = self._file_list # + self._dir_list
-        choice_list = self._file_list.all_name # + self._dir_list.all_name
+        choice_list = self._file_list.all_name  # + self._dir_list.all_name
         cmd_list = no_arg_cmd + cmd_with_arg
         set_completer(choice_list, cmd_list=cmd_list)
 
