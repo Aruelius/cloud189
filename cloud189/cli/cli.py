@@ -21,11 +21,11 @@ class Commander:
         self._dir_list = ''
         self._file_list = ''
         self._path_list = ''
-        self._parent_id = -1
+        self._parent_id = '-11'
         self._parent_name = ''
         self._work_name = ''
-        self._work_id = -1
-        self._last_work_id = -1
+        self._work_id = '-11'
+        self._last_work_id = '-11'
         self._reader_mode = False
         self._reader_mode = config.reader_mode
         self._default_dir_pwd = ''
@@ -47,6 +47,9 @@ class Commander:
         #     info(f"有任务在后台运行, 退出请直接关闭窗口")
         # else:
         exit_cmd(0)
+
+    def exit(self):
+        self.bye()
 
     def rmode(self):
         """适用于屏幕阅读器用户的显示方式"""
@@ -78,19 +81,15 @@ class Commander:
 
     def refresh(self, dir_id=None):
         """刷新当前文件夹和路径信息"""
-        pass
-        '''
         dir_id = self._work_id if dir_id is None else dir_id
-        self._file_list = self._disk.get_file_list(dir_id)
-        self._dir_list = self._disk.get_dir_list(dir_id)
-        self._path_list = self._disk.get_full_path(dir_id)
+        self._file_list, self._path_list = self._disk.get_file_list(dir_id)
         self._prompt = '/'.join(self._path_list.all_name) + ' > '
         self._last_work_id = self._work_id
         self._work_name = self._path_list[-1].name
         self._work_id = self._path_list[-1].id
-        if dir_id != -1:  # 如果存在上级路径
+        if dir_id != '-11':  # 如果存在上级路径
             self._parent_name = self._path_list[-2].name
-            self._parent_id = self._path_list[-2].id'''
+            self._parent_id = self._path_list[-2].id
 
     def login(self):
         """登录网盘"""
@@ -130,11 +129,11 @@ class Commander:
         self._prompt = '> '
         self._disk.logout()
         self._file_list.clear()
-        self._dir_list.clear()
+        # self._dir_list.clear()
         self._path_list = ''
-        self._parent_id = -1
-        self._work_id = -1
-        self._last_work_id = -1
+        self._parent_id = '-11'
+        self._work_id = '-11'
+        self._last_work_id = '-11'
         self._parent_name = ''
         self._work_name = ''
 
@@ -142,25 +141,15 @@ class Commander:
 
     def ls(self):
         """列出文件(夹)"""
-        self._disk.get_files()
-        '''
+        # self._file_list, self._path_list = self._disk.get_file_list(self._work_id)
         if self._reader_mode:  # 方便屏幕阅读器阅读
-            for folder in self._dir_list:
-                pwd_str = '有提取码' if folder.has_pwd else ''
-                print(f"{folder.name}/  {folder.desc}  {pwd_str}")
             for file in self._file_list:
-                pwd_str = '有提取码' if file.has_pwd else ''
-                print(f"{file.name}  大小:{file.size}  上传时间:{file.time}  下载次数:{file.downs}  {pwd_str}")
+                print(f"{file.name}  大小:{get_file_size_str(file.size)}  上传时间:{file.time}  ID:{file.id}")
         else:  # 普通用户显示方式
-            for folder in self._dir_list:
-                pwd_str = '✦' if folder.has_pwd else '✧'
-                print("#{0:<12}{1:<4}{2}{3}/".format(
-                    folder.id, pwd_str, text_align(folder.desc, 28), folder.name))
             for file in self._file_list:
-                pwd_str = '✦' if file.has_pwd else '✧'
-                print("#{0:<12}{1:<4}{2:<12}{3:>8}{4:>6}  {5}".format(
-                    file.id, pwd_str, file.time, file.size, file.downs, file.name))
-        '''
+                star = '✦' if file.isStarred else '✧'
+                print("# {0:<17}{1:<4}{2:<20}{3:>8}  {4}".format(
+                    file.id, star, file.time, get_file_size_str(file.size), file.name))
 
     def cd(self, dir_name):
         """切换工作目录"""
@@ -174,29 +163,29 @@ class Commander:
             self.refresh(self._last_work_id)
         elif dir_name == '.':
             pass
-        elif folder := self._dir_list.find_by_name(dir_name):
+        elif folder := self._file_list.find_by_name(dir_name):
             self.refresh(folder.id)
         else:
             error(f'文件夹不存在: {dir_name}')
 
     def mkdir(self, name):
         """创建文件夹"""
-        if self._dir_list.find_by_name(name):
+        if self._file_list.find_by_name(name):
             error(f'文件夹已存在: {name}')
             return None
 
-        dir_id = self._disk.mkdir(self._work_id, name, '')
-        if dir_id == Cloud189.MKDIR_ERROR:
-            error(f'创建文件夹失败(深度最大 4 级)')
+        dir_id = self._disk.mkdir(self._work_id, name)
+        if dir_id == Cloud189.FAILED:
+            error(f'创建文件夹失败!')
             return None
-        # 创建成功，添加到文件夹列表，减少向服务器请求次数
-        self._disk.set_passwd(dir_id, self._default_dir_pwd, is_file=False)
-        # self._dir_list.append(Folder(name, dir_id, bool(self._default_dir_pwd), ''))
+        else:
+            print("ID: ", dir_id)
 
-    def rm(self, fid):
+    def rm(self, name):
         """删除文件(夹)"""
-        if fid:
-            self._disk.delete_by_id(fid)
+        if file := self._file_list.find_by_name(name):
+            self._disk.delete_by_id(file.id)
+            self.refresh()
         # if file := self._file_list.find_by_name(name):  # 删除文件
         #     if self._disk.delete(file.id, True) == Cloud189.SUCCESS:
         #         self._file_list.pop_by_id(file.id)
@@ -278,10 +267,13 @@ class Commander:
             else:
                 error(f"移动文件夹到 {choice} 失败")
 
-    def down(self, arg):
+    def down(self, fname):
         """自动选择下载方式"""
-        if arg:
-            self._disk.download_by_id(arg)
+        if file := self._file_list.find_by_name(fname):
+            if file.isFolder:
+                print("暂不支持下载文件夹！")
+                return
+            self._disk.download_by_id(file.id)
         # downloader = Downloader(self._disk)
         # if arg.startswith('http'):
         #     downloader.set_url(arg)
@@ -311,7 +303,8 @@ class Commander:
         if not os.path.exists(path):
             error(f'该路径不存在哦: {path}')
             return None
-        self._disk.upload(path)
+        self._disk.upload(self._work_id, path)
+        self.refresh()
         # uploader = Uploader(self._disk)
         # if os.path.isfile(path):
         #     uploader.set_upload_path(path, is_file=True)
@@ -360,55 +353,55 @@ class Commander:
         # else:
         #     error(f"文件(夹)不存在: {name}")
 
-    def passwd(self, name):
-        """设置文件(夹)提取码"""
-        if file := self._file_list.find_by_name(name):  # 文件
-            inf = self._disk.get_share_info(file.id, True)
-            new_pass = input(f'修改提取码 "{inf.pwd or "无"}" -> ')
-            if 2 <= len(new_pass) <= 6:
-                if new_pass == 'off': new_pass = ''
-                if self._disk.set_passwd(file.id, str(new_pass), True) != Cloud189.SUCCESS:
-                    error('设置文件提取码失败')
-                self.refresh()
-            else:
-                error('提取码为2-6位字符,关闭请输入off')
-        elif folder := self._dir_list.find_by_name(name):  # 文件夹
-            inf = self._disk.get_share_info(folder.id, False)
-            new_pass = input(f'修改提取码 "{inf.pwd or "无"}" -> ')
-            if 2 <= len(new_pass) <= 12:
-                if new_pass == 'off': new_pass = ''
-                if self._disk.set_passwd(folder.id, str(new_pass), False) != Cloud189.SUCCESS:
-                    error('设置文件夹提取码失败')
-                self.refresh()
-            else:
-                error('提取码为2-12位字符,关闭请输入off')
-        else:
-            error(f'文件(夹)不存在: {name}')
+    # def passwd(self, name):
+    #     """设置文件(夹)提取码"""
+    #     if file := self._file_list.find_by_name(name):  # 文件
+    #         inf = self._disk.get_share_info(file.id, True)
+    #         new_pass = input(f'修改提取码 "{inf.pwd or "无"}" -> ')
+    #         if 2 <= len(new_pass) <= 6:
+    #             if new_pass == 'off': new_pass = ''
+    #             if self._disk.set_passwd(file.id, str(new_pass), True) != Cloud189.SUCCESS:
+    #                 error('设置文件提取码失败')
+    #             self.refresh()
+    #         else:
+    #             error('提取码为2-6位字符,关闭请输入off')
+    #     elif folder := self._dir_list.find_by_name(name):  # 文件夹
+    #         inf = self._disk.get_share_info(folder.id, False)
+    #         new_pass = input(f'修改提取码 "{inf.pwd or "无"}" -> ')
+    #         if 2 <= len(new_pass) <= 12:
+    #             if new_pass == 'off': new_pass = ''
+    #             if self._disk.set_passwd(folder.id, str(new_pass), False) != Cloud189.SUCCESS:
+    #                 error('设置文件夹提取码失败')
+    #             self.refresh()
+    #         else:
+    #             error('提取码为2-12位字符,关闭请输入off')
+    #     else:
+    #         error(f'文件(夹)不存在: {name}')
 
-    def desc(self, name):
-        """设置文件描述"""
-        if file := self._file_list.find_by_name(name):  # 文件
-            inf = self._disk.get_share_info(file.id, True)
-            print(f"当前描述: {inf.desc or '无'}")
-            desc = input(f'修改为 -> ')
-            if not desc:
-                error(f'文件描述不允许为空')
-                return None
-            if self._disk.set_desc(file.id, str(desc), True) != Cloud189.SUCCESS:
-                error(f'文件描述修改失败')
-            self.refresh()
-        elif folder := self._dir_list.find_by_name(name):  # 文件夹
-            inf = self._disk.get_share_info(folder.id, False)
-            print(f"当前描述: {inf.desc}")
-            desc = input(f'修改为 -> ') or ''
-            if self._disk.set_desc(folder.id, str(desc), False) == Cloud189.SUCCESS:
-                if len(desc) == 0:
-                    info('文件夹描述已关闭')
-            else:
-                error(f'文件夹描述修改失败')
-            self.refresh()
-        else:
-            error(f'文件(夹)不存在: {name}')
+    # def desc(self, name):
+    #     """设置文件描述"""
+    #     if file := self._file_list.find_by_name(name):  # 文件
+    #         inf = self._disk.get_share_info(file.id, True)
+    #         print(f"当前描述: {inf.desc or '无'}")
+    #         desc = input(f'修改为 -> ')
+    #         if not desc:
+    #             error(f'文件描述不允许为空')
+    #             return None
+    #         if self._disk.set_desc(file.id, str(desc), True) != Cloud189.SUCCESS:
+    #             error(f'文件描述修改失败')
+    #         self.refresh()
+    #     elif folder := self._dir_list.find_by_name(name):  # 文件夹
+    #         inf = self._disk.get_share_info(folder.id, False)
+    #         print(f"当前描述: {inf.desc}")
+    #         desc = input(f'修改为 -> ') or ''
+    #         if self._disk.set_desc(folder.id, str(desc), False) == Cloud189.SUCCESS:
+    #             if len(desc) == 0:
+    #                 info('文件夹描述已关闭')
+    #         else:
+    #             error(f'文件夹描述修改失败')
+    #         self.refresh()
+    #     else:
+    #         error(f'文件(夹)不存在: {name}')
 
     def setpath(self):
         """设置下载路径"""
@@ -456,7 +449,7 @@ class Commander:
         info(f"修改成功: 文件: {config.default_file_pwd or '无'}, 文件夹: {config.default_dir_pwd or '无'}, 配置将在下次启动时生效")
 
     def run_one(self, cmd, arg):
-        no_arg_cmd = ['bye', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout', 'ls', 'refresh', 'rmode', 'setpath',
+        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout', 'ls', 'refresh', 'rmode', 'setpath',
                       'setsize', 'update', 'xghost', 'setdelay', 'setpasswd']
         cmd_with_arg = ['cd', 'desc', 'down', 'jobs', 'mkdir', 'mv', 'passwd', 'rename', 'rm', 'share', 'upload']
 
@@ -467,12 +460,12 @@ class Commander:
 
     def run(self):
         """处理一条用户命令"""
-        no_arg_cmd = ['bye', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout', 'ls', 'refresh', 'rmode', 'setpath',
+        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout', 'ls', 'refresh', 'rmode', 'setpath',
                       'setsize', 'update', 'xghost', 'setdelay', 'setpasswd']
         cmd_with_arg = ['cd', 'desc', 'down', 'jobs', 'mkdir', 'mv', 'passwd', 'rename', 'rm', 'share', 'upload']
 
-        choice_list = self._file_list + self._dir_list
-        # choice_list = self._file_list.all_name + self._dir_list.all_name
+        # choice_list = self._file_list # + self._dir_list
+        choice_list = self._file_list.all_name # + self._dir_list.all_name
         cmd_list = no_arg_cmd + cmd_with_arg
         set_completer(choice_list, cmd_list=cmd_list)
 
@@ -482,7 +475,7 @@ class Commander:
                 return None
         except KeyboardInterrupt:
             print('')
-            info('退出本程序请输入 bye')
+            info('退出本程序请输入 bye 或 exit')
             return None
 
         cmd, arg = (args[0], '') if len(args) == 1 else (args[0], args[1])  # 命令, 参数(可带有空格, 没有参数就设为空)

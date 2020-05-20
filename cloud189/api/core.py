@@ -12,6 +12,8 @@ from urllib3 import disable_warnings
 from urllib3.exceptions import InsecureRequestWarning
 
 from cloud189.api.utils import *
+from cloud189.api.types import *
+from cloud189.api.models import *
 
 __all__ = ['Cloud189']
 
@@ -134,17 +136,6 @@ class Cloud189(object):
                 f.close()  
             return input("验证码下载完成，打开 ./captcha.png 查看: ")
 
-    def get_file_size_str(self, filesize: int) -> str:
-        if 0 < filesize < 1024**2:
-            return f"{round(filesize/1024, 2)}KB"
-        elif 1024**2 < filesize < 1024**3:
-            return f"{round(filesize/1024**2, 2)}MB"
-        elif 1024**3 < filesize < 1024**4:
-            return f"{round(filesize/1024**3, 2)}GB"
-        elif 1024**4 < filesize < 1024**5:
-            return f"{round(filesize/1024**4, 2)}TB"
-        else: return f"{filesize}Bytes"
-
     def share_file(self, fid):
         expireTime_dict = {
             "1": "1",
@@ -171,27 +162,41 @@ class Cloud189(object):
         msg += "" if not r.get("accessCode") else f"访问码：{r['accessCode']}"
         print(msg)
 
-    def get_files(self):
+    def get_file_list(self, fid) -> (FolderList, FolderList):
+        file_list = FolderList()
+        path_list = FolderList()
         url = self._host_url + "/v2/listFiles.action"
         params = {
-            "fileId": "-11", # 根目录
+            "fileId": fid, # 根目录
             "inGroupSpace": "false",
             "orderBy": "1",
             "order": "ASC",
             "pageNum": "1",
             "pageSize": "60"
         }
-        r = self._get(url, params=params).json()
-        for file in r["data"]:
-            folder_or_file = "文件夹: " if file["isFolder"] else f"大小: {self.get_file_size_str(file['fileSize'])} 文件名: "
-            filename = file["fileName"]
-            print(f"{folder_or_file}{filename} {'' if file['isFolder'] else '文件ID: ' + file['fileId']}")
+        resp = self._get(url, params=params).json()
+        if 'data' not in resp:
+            print(resp)
+        for info in resp["data"]:
+            fname = info['fileName']
+            fid = info['fileId']
+            pid = info['parentId']
+            time = info['createTime']
+            size = info['fileSize'] if 'fileSize' in info else ''
+            ftype = info['fileType']
+            durl = info['downloadUrl'] if 'downloadUrl' in info else ''
+            isFolder = info['isFolder']
+            isStarred = info['isStarred']
+            file_list.append(FolderInfo(fname, fid, pid, time, size, ftype, durl, isFolder, isStarred))
+        for path in resp["path"]:
+            path_list.append(PathInfo(path['fileName'], path['fileId'], path['isCoShare']))
 
-    def upload(self, filePath):
+        return file_list, path_list
+
+    def upload(self, fid, filePath):
         self._session.headers["Referer"] = self._host_url
         def get_upload_url():
             r = self._get(self._host_url + "/v2/getUserUploadUrl.action")
-            # print(r.text)
             return "https:" + r.json()["uploadUrl"]
 
         def get_session_key():
@@ -205,15 +210,15 @@ class Cloud189(object):
         def upload_file():
             filename = os.path.basename(filePath)
             filesize = os.path.getsize(filePath)
-            print(f"正在上传: {filename} 大小: {self.get_file_size_str(filesize)}")
+            print(f"正在上传: {filename} 大小: {filesize}")
             upload_url = get_upload_url()
             multipart_data = MultipartEncoder(
                 fields={
+                    "parentId": fid,
+                    "fname": filename,
                     "sessionKey": get_session_key(),
-                    "parentId": "-11", # 上传文件夹 根目录
                     "albumId": "undefined",
                     "opertype": "1",
-                    "fname": filename,
                     'file': (filename, open(filePath, 'rb'), 'application/octet-stream')
                 }
             )
@@ -261,3 +266,12 @@ class Cloud189(object):
         r = self._post(url, data=post_data)
         if r.text:
             print("删除成功！")
+
+    def mkdir(self, parent_id, fname):
+        '''新建文件夹'''
+        url = self._host_url + '/v2/createFolder.action'
+        html = self._get(url, params={'parentId': parent_id, 'fileName': fname})
+        if not html:
+            return Cloud189.FAILED
+        fid = html.json()['fileId']
+        return fid
