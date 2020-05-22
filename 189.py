@@ -8,7 +8,7 @@ import time
 
 import requests
 import rsa
-from requests_toolbelt.multipart.encoder import MultipartEncoder
+from requests_toolbelt.multipart.encoder import MultipartEncoder, MultipartEncoderMonitor
 
 session = requests.session()
 session.headers.update({
@@ -29,7 +29,7 @@ def encrypt(password: str) -> str:
         rsa.encrypt(
             (password).encode('utf-8'),
             rsa.PublicKey.load_pkcs1_openssl_pem(RSA_KEY.encode())
-        )
+        )[0]
     ).decode()
 
 b64map = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -218,6 +218,13 @@ def upload(filePath):
         sessionKey = re.findall(r"sessionKey = '(.+?)'", r.text)[0]
         return sessionKey
 
+    def callback(monitor):
+        progress = (monitor.bytes_read / monitor.len) * 100
+        print("文件上传进度：%d%%(%s/%s)"
+            % (progress,
+                get_file_size_str(monitor.bytes_read),
+                get_file_size_str(monitor.len)), end="\r", flush=True)
+
     def upload_file():
         filename = os.path.basename(filePath)
         filesize = os.path.getsize(filePath)
@@ -233,11 +240,12 @@ def upload(filePath):
                 'file': (filename, open(filePath, 'rb'), 'application/octet-stream')
             }
         )
+        multipart_monitor = MultipartEncoderMonitor(multipart_data, callback)
         r = session.post(
             url=upload_url,
-            data=multipart_data,
+            data=multipart_monitor,
             headers={
-                "Content-Type": multipart_data.content_type
+                "Content-Type": multipart_monitor.content_type
             }
         ).json()
         print(f"上传完毕！文件ID：{r['id']} 上传时间: {r['createDate']}")
