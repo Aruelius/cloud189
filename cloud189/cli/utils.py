@@ -94,6 +94,13 @@ def text_align(text, length) -> str:
     return text + ' ' * space
 
 
+def handle_name(name: str) -> str:
+    """使用引号包裹有空格的文件名"""
+    if ' ' in name:
+        name = "'" + name + "'"
+    return name
+
+
 def set_completer(choice_list, *, cmd_list=None, condition=None):
     """设置自动补全"""
     if condition is None:

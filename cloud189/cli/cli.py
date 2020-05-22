@@ -140,27 +140,58 @@ class Commander:
         self._work_name = ''
         config.cookie = None
 
+    def ll(self, args):
+        """列出文件(夹)，详细模式"""
+        self.ls(['-l', *args])
+
     def ls(self, args):
         """列出文件(夹)"""
         fid = old_fid = self._work_id
+        flag_full = False
+        flag_arg_l = False
         if args:
-            if file := self._file_list.find_by_name(args[0]):
-                if file.isFolder:
-                    fid = file.id
+            if len(args) >= 2:
+                if args[0] == '-l':
+                    flag_full = True
+                    fname = args[-1]
+                elif args[-1] == '-l':
+                    flag_full = True
+                    fname = args[0]
                 else:
-                    error(f"{args[0]} 非文件夹，显示当前目录文件")
+                    info(f"暂不支持查看多个文件！")
+                    fname = args[0]
             else:
-                error(f"{args[0]} 不存在，显示当前目录文件")
+                if args[0] == '-l':
+                    flag_full = True
+                    flag_arg_l = True
+                else:
+                    fname = args[0]
+            if not flag_arg_l:
+                if file := self._file_list.find_by_name(fname):
+                    if file.isFolder:
+                        fid = file.id
+                    else:
+                        error(f"{fname} 非文件夹，显示当前目录文件")
+                else:
+                    error(f"{fname} 不存在，显示当前目录文件")
         if fid != old_fid:
             self._file_list, _ = self._disk.get_file_list(fid)
-        if self._reader_mode:  # 方便屏幕阅读器阅读
+        if not flag_full:  # 只罗列文件名
             for file in self._file_list:
-                print(f"{file.name}  大小:{get_file_size_str(file.size)}  上传时间:{file.time}  ID:{file.id}")
-        else:  # 普通用户显示方式
-            for file in self._file_list:
-                star = '✦' if file.isStarred else '✧'
-                print("# {0:<17}{1:<4}{2:<20}{3:>8}  {4}".format(
-                    file.id, star, file.time, get_file_size_str(file.size), file.name))
+                if file.isFolder:
+                    print(f"\033[1;34m{handle_name(file.name)}\033[0m", end=' ')
+                else:
+                    print(f"{handle_name(file.name)}", end=' ')
+            print()
+        else:
+            if self._reader_mode:  # 方便屏幕阅读器阅读
+                for file in self._file_list:
+                    print(f"{handle_name(file.name)}  大小:{get_file_size_str(file.size)}  上传时间:{file.time}  ID:{file.id}")
+            else:  # 普通用户显示方式
+                for file in self._file_list:
+                    star = '✦' if file.isStarred else '✧'
+                    print("# {0:<17}{1:<4}{2:<20}{3:>8}  {4}".format(
+                        file.id, star, file.time, get_file_size_str(file.size), handle_name(file.name)))
         if fid != old_fid:
             self._file_list, _ = self._disk.get_file_list(old_fid)
 
@@ -215,8 +246,6 @@ class Commander:
 
     def rename(self, args):
         """重命名文件(夹)"""
-        info('目前还未完成！')
-        return
         name = args[0].strip(' ')
         if not name:
             info('参数：原文件名 [新文件名]')
@@ -467,7 +496,7 @@ class Commander:
     def run_one(self, cmd, arg):
         no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout', 'refresh', 'rmode', 'setpath',
                       'setsize', 'update', 'xghost', 'setdelay', 'setpasswd']
-        cmd_with_arg = ['ls', 'cd', 'desc', 'down', 'jobs', 'mkdir', 'mv', 'passwd', 'rename', 'rm', 'share', 'upload']
+        cmd_with_arg = ['ls', 'll', 'cd', 'desc', 'down', 'jobs', 'mkdir', 'mv', 'passwd', 'rename', 'rm', 'share', 'upload']
 
         if cmd in no_arg_cmd:
             getattr(self, cmd)()
@@ -508,9 +537,9 @@ class Commander:
         """处理一条用户命令"""
         no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout', 'refresh', 'rmode', 'setpath',
                       'setsize', 'update', 'xghost', 'setdelay', 'setpasswd']
-        cmd_with_arg = ['ls', 'cd', 'desc', 'down', 'jobs', 'mkdir', 'mv', 'passwd', 'rename', 'rm', 'share', 'upload']
+        cmd_with_arg = ['ls', 'll', 'cd', 'desc', 'down', 'jobs', 'mkdir', 'mv', 'passwd', 'rename', 'rm', 'share', 'upload']
 
-        choice_list = self._file_list.all_name  # + self._dir_list.all_name
+        choice_list = [handle_name(i) for i in self._file_list.all_name]  # 引号包裹空格文件名
         cmd_list = no_arg_cmd + cmd_with_arg
         set_completer(choice_list, cmd_list=cmd_list)
 
@@ -522,8 +551,7 @@ class Commander:
             print('')
             info('退出本程序请输入 bye 或 exit')
             return None
-        # a = [i for i in args[1].split(' ')]
-        # print(*args[1:], '====', a)
+
         cmd, args = (args[0], []) if len(args) == 1 else (args[0], self.handle_args(args[1]))  # 命令, 参数(可带有空格, 没有参数就设为空)
 
         if cmd in no_arg_cmd:
