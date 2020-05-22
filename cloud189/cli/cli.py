@@ -291,6 +291,7 @@ class Commander:
                 else:
                     path = '/'.join(self._path_list.all_name) + '/' + item  # 文件在网盘的绝对路径
                     downloader.set_fid(file.id, is_file=True, f_path=path)
+                    print("开始下载, 输入 jobs 查看下载进度...")
             else:
                 error(f'文件(夹)不存在: {item}')
                 continue
@@ -468,6 +469,25 @@ class Commander:
             getattr(self, cmd)()
         elif cmd in cmd_with_arg:
             getattr(self, cmd)(arg)
+    
+    def handle_args(self, args: str) -> list:
+        is_file = 0
+        real_file_name = ""
+        real_file_list = []
+        file_list = args.split(" ")
+        for file in file_list:
+            if "." not in file:
+                real_file_name += file + " "
+                is_file = 0
+            else:
+                if not is_file:
+                    real_file_name += file
+                    real_file_list.append(real_file_name)
+                    real_file_name = ""
+                else:
+                    is_file = 1
+                    real_file_list.append(file)
+        return real_file_list
 
     def run(self):
         """处理一条用户命令"""
@@ -489,7 +509,7 @@ class Commander:
             return None
         # a = [i for i in args[1].split(' ')]
         # print(*args[1:], '====', a)
-        cmd, args = (args[0], []) if len(args) == 1 else (args[0], list(args[1].split(' ')))  # 命令, 参数(可带有空格, 没有参数就设为空)
+        cmd, args = (args[0], []) if len(args) == 1 else (args[0], self.handle_args(args[1]))  # 命令, 参数(可带有空格, 没有参数就设为空)
 
         if cmd in no_arg_cmd:
             getattr(self, cmd)()
