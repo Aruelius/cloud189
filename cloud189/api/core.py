@@ -423,13 +423,12 @@ class Cloud189(object):
     def rename(self, fid, fname):
         ''''重命名文件(夹)'''
         url = self._host_url + '/v2/renameFile.action'
-        resp = self._get(url, params={'parentId': str(fid), 'fileName': fname})
+        resp = self._get(url, params={'fileId': str(fid), 'fileName': fname})
         if not resp:
             return Cloud189.NETWORK_ERROR
         resp = resp.json()
         if 'success' in resp:
             return Cloud189.SUCCESS
-        # print(resp,  str(fid), fname)  # 有点问题
         return Cloud189.FAILED
 
     def get_folder_nodes(self, fid):
