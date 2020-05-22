@@ -186,6 +186,7 @@ class Commander:
         """创建文件夹"""
         if not args:
             info('参数：新建文件夹名')
+        refresh_flag = False
         for name in args:
             if self._file_list.find_by_name(name):
                 error(f'文件夹已存在: {name}')
@@ -193,9 +194,12 @@ class Commander:
             r = self._disk.mkdir(self._work_id, name)
             if r.code == Cloud189.SUCCESS:
                 print(f"{name} ID: ", r.id)
+                refresh_flag = True
             else:
                 error(f'创建文件夹 {name} 失败!')
                 continue
+        if refresh_flag:
+            self.refresh()
 
     def rm(self, args):
         """删除文件(夹)"""
@@ -469,25 +473,36 @@ class Commander:
             getattr(self, cmd)()
         elif cmd in cmd_with_arg:
             getattr(self, cmd)(arg)
-    
+
     def handle_args(self, args: str) -> list:
-        is_file = 0
-        real_file_name = ""
-        real_file_list = []
-        file_list = args.split(" ")
-        for file in file_list:
-            if "." not in file:
-                real_file_name += file + " "
-                is_file = 0
-            else:
-                if not is_file:
-                    real_file_name += file
-                    real_file_list.append(real_file_name)
-                    real_file_name = ""
-                else:
-                    is_file = 1
-                    real_file_list.append(file)
-        return real_file_list
+        ''''处理参数列表'''
+        result = []
+        arg = ''
+        i = 0
+        flag_1 = False  # 标记 "
+        flag_2 = False  # 标记 '
+        while i < len(args):
+            if flag_1 and args[i] != '"':
+                arg += args[i]
+            elif flag_2 and args[i] != '\'':
+                arg += args[i]
+            elif args[i] not in (' ', '\\', '"', '\''):
+                arg += args[i]
+            elif args[i] == '\\' and i < len(args) and args[i+1] == ' ':
+                arg += ' '
+                i += 1  # 额外前进一步
+            elif args[i] == ' ':
+                if arg:
+                    result.append(arg)
+                    arg = ''  # 新的参数
+            elif args[i] == '"':
+                flag_1 = not flag_1
+            elif args[i] == '\'':
+                flag_2 = not flag_2
+            i += 1
+        if arg:
+            result.append(arg)
+        return result
 
     def run(self):
         """处理一条用户命令"""
