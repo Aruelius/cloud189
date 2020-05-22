@@ -9,8 +9,8 @@ if __name__ == '__main__':
     commander.login()
 
     if len(sys.argv) >= 2:
-        cmd, arg = (sys.argv[1], '') if len(sys.argv) == 2 else (sys.argv[1], sys.argv[2])
-        commander.run_one(cmd, arg)
+        cmd, args = (sys.argv[1], []) if len(sys.argv) == 2 else (sys.argv[1], list(sys.argv[2].split(' ')))
+        commander.run_one(cmd, args)
     else:
         # set_console_style()
         # check_update()

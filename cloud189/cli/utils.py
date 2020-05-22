@@ -182,7 +182,7 @@ def check_update():
     """检查更新"""
     clear_screen()
     print("正在检测更新...")
-    api = "https://api.github.com/repos/rachpt/cloud189/releases/latest"
+    api = "https://api.github.com/repos/Aruelius/cloud189/releases/latest"
     tag_name = None
     try:
         resp = requests.get(api).json()

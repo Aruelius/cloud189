@@ -32,15 +32,20 @@
 |------------------------|-----------------------|
 |login                   |用户名+密码 登录       |
 |clogin                  |cookie 登录            |
-|ls                      |列处文件与目录         |
+|ls     + `[文件夹]`     |列处文件与目录         |
 |cd     + `文件夹名`     |切换工作目录           |
 |upload + `文件路径`     |上传文件               |
 |down   + `文件名`       |下载文件               |
 |mkdir  + `文件夹名`     |创建文件夹             |
 |rm     + `文件/文件夹`  |删除文件(夹)           |
 |share  + `文件/文件夹`  |分享文件(夹)           |
+|jobs   + `[任务id]`     |查看后台上传下载任务   |
+|clear                   |清屏                   |
+|rename*                 |重命名                 |
+|mv*                     |移动文件               |
 |bye/exit                |退出                   |
 
+*还未完成，在做了……
 
 # 使用
 1. 不加参数则进入交互模式
@@ -61,7 +66,8 @@ python main.py upload '文件路径'
 
 # License
 
-[GPL-3.0](https://github.com/Aruelius/cloud189/blob/master/LICENSE)
+[GPL-3.0](https://github.com/Aruelius/main/blob/master/LICENSE)
 
 # 致谢
+
 > [LanZouCloud-CMD](https://github.com/zaxtyson/LanZouCloud-CMD)
