@@ -207,23 +207,36 @@ class Cloud189(object):
             sessionKey = re.findall(r"sessionKey = '(.+?)'", r.text)[0]
             return sessionKey
 
+        def callback(monitor):
+            progress = (monitor.bytes_read / monitor.len) * 100
+            print("文件上传进度：%d%%(%s/%s)"
+                % (progress,
+                    get_file_size_str(monitor.bytes_read),
+                    get_file_size_str(monitor.len)), end="\r", flush=True)
+
         def upload_file():
             filename = os.path.basename(filePath)
             filesize = os.path.getsize(filePath)
-            print(f"正在上传: {filename} 大小: {filesize}")
+            print(f"正在上传: {filename} 大小: {get_file_size_str(filesize)}")
             upload_url = get_upload_url()
             multipart_data = MultipartEncoder(
                 fields={
-                    "parentId": fid,
-                    "fname": filename,
                     "sessionKey": get_session_key(),
+                    "parentId": "-11", # 上传文件夹 根目录
                     "albumId": "undefined",
                     "opertype": "1",
+                    "fname": filename,
                     'file': (filename, open(filePath, 'rb'), 'application/octet-stream')
                 }
             )
-            headers = {"Content-Type": multipart_data.content_type}
-            r = self._post(url=upload_url, data=multipart_data, headers=headers).json()
+            multipart_monitor = MultipartEncoderMonitor(multipart_data, callback)
+            r = session.post(
+                url=upload_url,
+                data=multipart_monitor,
+                headers={
+                    "Content-Type": multipart_monitor.content_type
+                }
+            ).json()
             print(f"上传完毕！文件ID：{r['id']} 上传时间: {r['createDate']}")
         upload_file()
 
