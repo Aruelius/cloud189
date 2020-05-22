@@ -61,9 +61,7 @@ python main.py upload '文件路径'
 
 # License
 
-[GPL-3.0](https://github.com/rachpt/main/blob/master/LICENSE)
+[GPL-3.0](https://github.com/Aruelius/cloud189/blob/master/LICENSE)
 
 # 致谢
-
-> [cloud189](https://github.com/Aruelius/cloud189)  
 > [LanZouCloud-CMD](https://github.com/zaxtyson/LanZouCloud-CMD)
