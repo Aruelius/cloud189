@@ -139,11 +139,11 @@ class Cloud189(object):
     def share_file(self, fid, et=None, ac=None):
         '''分享文件'''
         expireTime_dict = {"1": "1", "2": "7", "3": "2099"}
-        if et and et in (1, 2, 3):
+        if et and et in ('1', '2', '3'):
             expireTime = et
         else:
             expireTime = input("请选择分享有效期：1、1天，2、7天，3、永久：")
-        if ac and ac in (1, 2):
+        if ac and ac in ('1', '2'):
             withAccessCode = ac
         else:
             withAccessCode = input("请选择分享形式：1、私密分享，2、公开分享：")
@@ -166,7 +166,7 @@ class Cloud189(object):
         resp = resp.json()
         share_url = resp['shortShareUrl']
         pwd = resp['accessCode'] if 'accessCode' in resp else ''
-        return ShareCode(Cloud189.SUCCESS, share_url, pwd)
+        return ShareCode(Cloud189.SUCCESS, share_url, pwd, expireTime)
 
     def get_file_list(self, fid) -> (FolderList, FolderList):
         file_list = FolderList()
@@ -236,7 +236,7 @@ class Cloud189(object):
 
         file = open(file_path, 'rb')
         post_data = {
-            "parentId": folder_id,
+            "parentId": str(folder_id),
             "fname": filename,
             "sessionKey": sessionKey,
             "albumId": "undefined",

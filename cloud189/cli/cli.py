@@ -340,8 +340,8 @@ class Commander:
             info('参数：需要分享的文件 [1/2/3] [1/2]')
             return
         if file := self._file_list.find_by_name(name):
-            et = args[1] if len(args) == 2 else None
-            ac = args[2] if len(args) == 3 else None
+            et = args[1] if len(args) >= 2 else None
+            ac = args[2] if len(args) >= 3 else None
             result = self._disk.share_file(file.id, et, ac)
             if result.code == Cloud189.SUCCESS:
                 print("-" * 50)
@@ -351,6 +351,13 @@ class Commander:
                     print(f"文件大小 : {get_file_size_str(file.size)}")
                 print(f"分享链接 : {result.url}")
                 print(f"提取码   : {result.pwd or '无'}")
+                if result.et == '1':
+                    time = '1天'
+                elif result.et == '2':
+                    time = '7天'
+                else:
+                    time = '永久'
+                print(f"有效期   : {time}")
                 print("-" * 50)
             else:
                 error('获取文件(夹)信息出错！')
@@ -480,8 +487,9 @@ class Commander:
             print('')
             info('退出本程序请输入 bye 或 exit')
             return None
-
-        cmd, args = (args[0], []) if len(args) == 1 else (args[0], args[1:])  # 命令, 参数(可带有空格, 没有参数就设为空)
+        # a = [i for i in args[1].split(' ')]
+        # print(*args[1:], '====', a)
+        cmd, args = (args[0], []) if len(args) == 1 else (args[0], list(args[1].split(' ')))  # 命令, 参数(可带有空格, 没有参数就设为空)
 
         if cmd in no_arg_cmd:
             getattr(self, cmd)()

@@ -9,4 +9,4 @@ PathInfo = namedtuple('PathInfo', ['name', 'id', 'isCoShare'])
 
 UpCode = namedtuple('UpCode', ['code', 'id'], defaults=(0, ''))
 MkCode = namedtuple('MkCode', ['code', 'id'], defaults=(0, ''))
-ShareCode = namedtuple('ShareCode', ['code', 'url', 'pwd'], defaults=(0, '', ''))
+ShareCode = namedtuple('ShareCode', ['code', 'url', 'pwd', 'et'], defaults=(0, '', '', ''))
