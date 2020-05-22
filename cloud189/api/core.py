@@ -195,7 +195,7 @@ class Cloud189(object):
             isStarred = info['isStarred']
             file_list.append(FolderInfo(fname, fid, pid, time, size, ftype, durl, isFolder, isStarred))
         for info in resp["path"]:
-            path_list.append(PathInfo(info['fileName'], info['fileId'], info['isCoShare']))
+            path_list.append(PathInfo(info['fileName'], int(info['fileId']), info['isCoShare']))
 
         return file_list, path_list
 
@@ -341,7 +341,7 @@ class Cloud189(object):
         taskInfo = {"fileId": infos["fileId"],
                     "srcParentId": infos["parentId"],
                     "fileName": infos["fileName"],
-                    "isFolder": 1 if infos["isfolder"] else 0 }
+                    "isFolder": 1 if infos["isFolder"] else 0 }
 
         url = self._host_url + "/createBatchTask.action"
         post_data = { "type": "DELETE", "taskInfos": json.dumps([taskInfo,])}
@@ -429,7 +429,7 @@ class Cloud189(object):
         resp = resp.json()
         if 'success' in resp:
             return Cloud189.SUCCESS
-        print(resp,  str(fid), fname)
+        # print(resp,  str(fid), fname)  # 有点问题
         return Cloud189.FAILED
 
     def get_folder_nodes(self, fid):

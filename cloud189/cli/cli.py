@@ -205,11 +205,14 @@ class Commander:
         for name in args:
             if file := self._file_list.find_by_name(name):
                 self._disk.delete_by_id(file.id)
+            else:
+                error(f"无此文件：{name}")
         self.refresh()
 
     def rename(self, args):
         """重命名文件(夹)"""
-        print(len(args))
+        info('目前还未完成！')
+        return
         name = args[0].strip(' ')
         if not name:
             info('参数：原文件名 [新文件名]')
@@ -227,6 +230,8 @@ class Commander:
 
     def mv(self, args):
         """移动文件或文件夹"""
+        info('目前还未完成！')
+        return
         name = args[0]
         if not name:
             info('参数：文件名 [新文件夹名]')
@@ -246,7 +251,7 @@ class Commander:
         path_list = self._disk.get_move_paths()
         path_list = {'/'.join(path.all_name): path[-1].id for path in path_list}
         choice_list = list(path_list.keys())
-
+        '''
         def _condition(typed_str, choice_str):
             path_depth = len(choice_str.split('/'))
             # 没有输入时, 补全 Cloud189,深度 1
@@ -273,6 +278,7 @@ class Commander:
                 self._dir_list.pop_by_id(fid)
             else:
                 error(f"移动文件夹到 {choice} 失败")
+        '''
 
     def down(self, args):
         """自动选择下载方式"""
@@ -476,7 +482,6 @@ class Commander:
             return None
 
         cmd, args = (args[0], []) if len(args) == 1 else (args[0], args[1:])  # 命令, 参数(可带有空格, 没有参数就设为空)
-        print(args,111)
 
         if cmd in no_arg_cmd:
             getattr(self, cmd)()
