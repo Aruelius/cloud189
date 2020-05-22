@@ -1,8 +1,11 @@
+import os
+import sys
 from pickle import load, dump
+
 
 __all__ = ['config']
 KEY = 152
-config_file = './.config'
+config_file = os.path.dirname(sys.argv[0]) + os.sep + '.config'
 
 
 def encrypt(key, s):
