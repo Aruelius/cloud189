@@ -127,7 +127,7 @@ def print_logo():
 #   \______/ |__/ \______/  \______/  \_______/|______/ \______/  \______/ 
 #                                                                          
 --------------------------------------------------------------------------
-      Github: https://github.com/rachpt/cloud189 (Version: {version})
+      Github: https://github.com/Aruelius/cloud189 (Version: {version})
 --------------------------------------------------------------------------
     """
     print(logo_str)
@@ -171,7 +171,7 @@ def print_help():
     bye         退出本程序
     
     更详细的介绍请参考本项目的 Github 主页:
-    https://github.com/rachpt/cloud189   
+    https://github.com/Aruelius/cloud189   
     如有 Bug 反馈或建议请在 GitHub 提 Issue
     感谢您的使用 (●'◡'●)
     """
@@ -182,7 +182,7 @@ def check_update():
     """检查更新"""
     clear_screen()
     print("正在检测更新...")
-    api = "https://api.github.com/repos/rachpt/cloud189/releases/latest"
+    api = "https://api.github.com/repos/Aruelius/cloud189/releases/latest"
     tag_name = None
     try:
         resp = requests.get(api).json()
@@ -203,9 +203,9 @@ def check_update():
             print(f"\n@Windows 更新:")
             print(f"Github: {update_url}")
             print("\n@Linux 更新:")
-            input("git clone https://github.com/rachpt/cloud189.git")
+            input("git clone https://github.com/Aruelius/cloud189.git")
         else:
             print("(*/ω＼*) 暂无新版本发布~")
             print("但项目可能已经更新，建议去项目主页看看")
             print("如有 Bug 或建议,请提 Issue")
-            print("Github: https://github.com/rachpt/cloud189")
+            print("Github: https://github.com/Aruelius/cloud189")
