@@ -20,5 +20,5 @@ if __name__ == '__main__':
                 commander.run()
             except KeyboardInterrupt:
                 pass
-            # except Exception as e:
-            #     error(e)
+            except Exception as e:
+                error(e)
