@@ -177,7 +177,7 @@ class Uploader(Thread):
 
     def get_process(self) -> (int, int, str):
         current_file = len(self._all_file_names)
-        count = f"({current_file}/{self._total_files})" if current_file >= 1 else ''
+        count = f"({current_file}/{self._total_files})" if self._total_files >= 1 else ''
         return self._now_size, self._total_size, count
 
     def get_cmd_info(self):

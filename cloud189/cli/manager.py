@@ -54,7 +54,7 @@ class TaskManager(object):
             percent = 100  # 可能更新不及时
             status = '\033[1;34mFinished\033[0m'
         if task.get_task_type() == TaskType.DOWNLOAD:
-            d_arg, f_name = task.get_cmd_info()
+            d_arg, f_name, _ = task.get_cmd_info()
             d_arg = f_name if type(d_arg) == int else d_arg  # 显示 id 对应的文件名
             print(f"[{pid}] Status: {status} | Process: {percent:5.1f}% | Download: {d_arg}")
         else:
