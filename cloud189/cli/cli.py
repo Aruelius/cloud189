@@ -375,6 +375,7 @@ class Commander:
         """上传文件(夹)"""
         if not args:
             info('参数：文件路径')
+        task_flag = False
         for path in args:
             path = path.strip('\"\' ')  # 去除直接拖文件到窗口产生的引号
             if not os.path.exists(path):
@@ -387,6 +388,9 @@ class Commander:
                 uploader.set_upload_path(path, is_file=False)
             uploader.set_target(self._work_id, self._work_name)
             self._task_mgr.add_task(uploader)
+            task_flag = True
+        if task_flag:
+            print("开始上传, 输入 jobs 查看上传进度...")
 
     def share(self, args):
         """分享文件"""
