@@ -104,7 +104,7 @@ def handle_name(name: str) -> str:
 def set_completer(choice_list, *, cmd_list=None, condition=None):
     """设置自动补全"""
     if condition is None:
-        condition = lambda typed, choice: choice.startswith(typed)  # 默认筛选条件：选项以键入字符开头
+        condition = lambda typed, choice: choice.startswith(typed) or choice.startswith("'" + typed)  # 默认筛选条件：选项以键入字符开头
 
     def completer(typed, rank):
         tab_list = []  # TAB 补全的选项列表
