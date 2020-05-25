@@ -67,6 +67,21 @@ python main.py
 python main.py upload '文件路径'
 ```  
 
+# 依赖
+如果在 Linux 运行出现
+~~~shell
+import readline
+ValueError: _type_ 'v' not supported
+~~~
+需要安装依赖，然后重新编译 Python  
+Ubuntu
+~~~shell
+apt-get install libreadline-dev
+~~~
+CentOS
+~~~shell
+yum install readline-devel 
+~~~
 # License
 
 [GPL-3.0](https://github.com/Aruelius/cloud189/blob/master/LICENSE)
