@@ -179,9 +179,9 @@ class Commander:
         if not flag_full:  # 只罗列文件名
             for file in self._file_list:
                 if file.isFolder:
-                    print(f"\033[1;34m{handle_name(file.name)}\033[0m", end=' ')
+                    print(f"\033[1;34m{handle_name(file.name)}\033[0m", end='  ')
                 else:
-                    print(f"{handle_name(file.name)}", end=' ')
+                    print(f"{handle_name(file.name)}", end='  ')
             print()
         else:
             if self._reader_mode:  # 方便屏幕阅读器阅读
