@@ -200,7 +200,7 @@ class Commander:
         dir_name = args[0]
         if not dir_name:
             info('cd .. 返回上级路径, cd - 返回上次路径, cd / 返回根目录')
-        elif dir_name == '..':
+        elif dir_name in ["..", "../"]:
             self.refresh(self._parent_id)
         elif dir_name == '/':
             self.refresh(-11)
