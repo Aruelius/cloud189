@@ -1,4 +1,5 @@
 import os
+import sys
 from platform import system as platform
 
 import readline
@@ -69,7 +70,7 @@ def set_console_style():
 
 def captcha_handler(img_data):
     """处理下载时出现的验证码"""
-    img_path = os.getcwd() + os.sep + 'captcha.png'
+    img_path = os.path.dirname(sys.argv[0]) + os.sep + 'captcha.png'
     with open(img_path, 'wb') as f:
         f.write(img_data)
     m_platform = platform()

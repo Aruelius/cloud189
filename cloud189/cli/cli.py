@@ -4,6 +4,7 @@ from webbrowser import open_new_tab
 
 from cloud189.api import Cloud189
 from cloud189.api.models import FolderList
+from cloud189.api.token import get_token
 
 from cloud189.cli import config
 from cloud189.cli.downloader import Downloader, Uploader
@@ -30,6 +31,7 @@ class Commander:
         self._reader_mode = False
         self._reader_mode = config.reader_mode
         self._default_dir_pwd = ''
+        self._disk.set_captcha_handler(captcha_handler)
 
     @staticmethod
     def clear():
@@ -95,7 +97,7 @@ class Commander:
 
     def login(self):
         """登录网盘"""
-        if not config.cookie or self._disk.login_by_cookie(config.cookie) != Cloud189.SUCCESS:
+        if not config.cookie or self._disk.login_by_cookie(config) != Cloud189.SUCCESS:
             username = input('输入用户名:')
             password = getpass('输入密码:')
             code = self._disk.login(username, password)
@@ -106,7 +108,13 @@ class Commander:
                 error('登录失败,用户名或密码错误 :(')
                 return None
             # 登录成功保存用户 cookie
+            config.username = username
+            config.password = password
             config.cookie = self._disk.get_cookie()
+            code, token = get_token(username, password)
+            if code == Cloud189.SUCCESS:
+                config.set_token(*token)
+                self._disk.set_session(*token)
         self.refresh()
 
 
@@ -349,6 +357,19 @@ class Commander:
                 self._task_mgr.show_detail(int(arg))
             else:
                 self._task_mgr.show_tasks()
+
+    # def call_back(self, fname, current, size):
+    #     print(f"{fname=}, {current=}, {size=}")
+
+    # def upload(self, args):
+    #     if not args:
+    #         info('参数：文件路径')
+    #     for path in args:
+    #         path = path.strip('\"\' ')  # 去除直接拖文件到窗口产生的引号
+    #         if not os.path.exists(path):
+    #             error(f'该路径不存在哦: {path}')
+    #             continue
+    #         self._disk.upload_file_by_client(path, self._work_id, self.call_back)
 
     def upload(self, args):
         """上传文件(夹)"""

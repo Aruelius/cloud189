@@ -1,3 +1,4 @@
+import os
 from enum import Enum
 from threading import Thread
 
@@ -53,13 +54,13 @@ class Downloader(Thread):
         """获取当前任务类型"""
         return self._task_type
 
-    def get_process(self) -> (int, int):
+    def get_process(self) -> (int, int, str):
         """获取下载进度"""
-        return self._now_size, self._total_size
+        return self._now_size, self._total_size, ''
 
     def get_cmd_info(self):
         """获取命令行的信息"""
-        return self._down_args, self._f_path
+        return self._down_args, self._f_path, ''
 
     def get_err_msg(self) -> list:
         """获取后台下载时保存的错误信息"""
@@ -153,8 +154,11 @@ class Uploader(Thread):
         self._up_type = None
         self._folder_id = -11
         self._folder_name = ''
+        self._quick_up = False
         self._now_size = 0
         self._total_size = 1
+        self._total_files = 0
+        self._all_file_names = []
         self._err_msg = []
         # self._default_file_pwd = config.default_file_pwd
         # self._default_dir_pwd = config.default_dir_pwd
@@ -171,11 +175,13 @@ class Uploader(Thread):
     def get_task_type(self):
         return self._task_type
 
-    def get_process(self) -> (int, int):
-        return self._now_size, self._total_size
+    def get_process(self) -> (int, int, str):
+        current_file = len(self._all_file_names)
+        count = f"({current_file}/{self._total_files})" if current_file >= 1 else ''
+        return self._now_size, self._total_size, count
 
     def get_cmd_info(self):
-        return self._up_path, self._folder_name
+        return self._up_path, self._folder_name, self._quick_up
 
     def get_err_msg(self) -> list:
         return self._err_msg
@@ -191,6 +197,8 @@ class Uploader(Thread):
         self._folder_name = folder_name
 
     def _show_progress(self, file_name, total_size, now_size):
+        if file_name not in self._all_file_names:
+            self._all_file_names.append(file_name)
         self._total_size = total_size
         self._now_size = now_size
 
@@ -206,14 +214,28 @@ class Uploader(Thread):
         # else:
         #     self._disk.set_passwd(fid, self._default_dir_pwd, is_file=False)
 
+    def _set_dir_files_number(self, folder_path):
+        """获取文件夹所有文件数量"""
+        count = 0
+        for _, _, files in os.walk(folder_path):
+            count += len(files)
+        self._total_files = count
+
     def run(self) -> None:
         if self._up_type == UploadType.FILE:
             info = self._disk.upload_file(self._up_path, self._folder_id, callback=self._show_progress)
             if info.code != Cloud189.SUCCESS:
                 self._error_msg(f"文件上传失info败: {why_error(info.code)} -> {self._up_path}")
+            else:
+                self._quick_up = info.quick_up
 
         elif self._up_type == UploadType.FOLDER:
-            info = self._disk.upload_dir(self._up_path, self._folder_id, callback=self._show_progress,
-                                         failed_callback=self._show_upload_failed)
-            if info.code != Cloud189.SUCCESS:
-                self._error_msg(f"文件夹上传失败: {why_error(info.code)} -> {self._up_path}")
+            self._set_dir_files_number(self._up_path)
+            infos = self._disk.upload_dir(self._up_path, self._folder_id, callback=self._show_progress)
+            # , failed_callback=self._show_upload_failed)
+            if isinstance(infos, list):
+                for info in infos:
+                    if info.code != Cloud189.SUCCESS:
+                        self._error_msg(f"文件夹中 {info.name} 上传失败: {why_error(info.code)}")
+            else:  # 进入单文件上传之前就已经出错
+                self._error_msg(f"文件夹上传失败: {why_error(infos.code)} -> {self._up_path}")

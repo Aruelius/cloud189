@@ -2,15 +2,18 @@
 API 处理网页数据、数据切片时使用的工具
 """
 
+import os
 import logging
+import hmac
 import hashlib
-import rsa
+from datetime import datetime
 from base64 import b64encode
+import rsa
 
-__all__ = ['logger', 'md5', 'encrypt', 'int2char', 'b64tohex']
+# __all__ = ['logger', 'md5', 'encrypt', 'int2char', 'b64tohex', 'rsa_encode', 'calculate_md5_sign', 'API', 'UA, 'get_gmt_time', 'get_time']
 
 # 调试日志设置
-logger = logging.getLogger('lanzou')
+logger = logging.getLogger('cloud189')
 logger.setLevel(logging.ERROR)
 formatter = logging.Formatter(
     fmt="%(asctime)s [line:%(lineno)d] %(funcName)s %(levelname)s - %(message)s",
@@ -19,6 +22,11 @@ console = logging.StreamHandler()
 console.setFormatter(formatter)
 logger.addHandler(console)
 
+API = 'https://api.cloud.189.cn'
+UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) ????/1.0.0 ' \
+     'Chrome/69.0.3497.128 Electron/4.2.12 Safari/537.36 '
+# UA = 'Mozilla/5.0'
+SUFFIX_PARAM = 'clientType=TELEMAC&version=1.0.0&channelId=web_cloud.189.cn'
 
 RSA_KEY = """-----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDY7mpaUysvgQkbp0iIn2ezoUyh
@@ -67,7 +75,6 @@ def b64tohex(a):
                 d += int2char(15 & v)
     if e == 1:
         d += int2char(c << 2)
-    # print(d)
     return d
 
 
@@ -75,3 +82,65 @@ def md5(s):
     hl = hashlib.md5()
     hl.update(s.encode(encoding='utf-8'))
     return hl.hexdigest()
+
+
+def calculate_md5_sign(params):
+    return hashlib.md5('&'.join(sorted(params.split('&'))).encode('utf-8')).hexdigest()
+
+
+def rsa_encode(j_rsakey, string):
+    rsa_key = f"-----BEGIN PUBLIC KEY-----\n{j_rsakey}\n-----END PUBLIC KEY-----"
+    pubkey = rsa.PublicKey.load_pkcs1_openssl_pem(rsa_key.encode())
+    result = b64tohex((b64encode(rsa.encrypt(f'{string}'.encode(), pubkey))).decode())
+    return result
+
+
+def calculate_hmac_sign(secret_key, session_key, operate, url, date):
+    request_uri = url.split("?")[0].replace(f"{API}", "")
+    plain = f'SessionKey={session_key}&Operate={operate}&RequestURI={request_uri}&Date={date}'
+    return hmac.new(secret_key.encode(), plain.encode(), hashlib.sha1).hexdigest().upper()
+
+
+def get_time(stamp=False):
+    '''获取当前时间戳'''
+    if stamp:
+        return str(int(datetime.utcnow().timestamp() * 1000))
+    else:
+        return datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
+
+
+def get_file_md5(file_path):
+    _md5 = hashlib.md5()
+    with open(file_path, 'rb') as f:
+        while True:
+            data = f.read(64 * 1024)
+            if not data:
+                break
+            _md5.update(data)
+        hash_md5 = _md5.hexdigest()
+    return hash_md5.upper()
+
+
+def get_file_size(file_path):
+    return str(os.path.getsize(file_path))
+
+
+def get_file_name(file_path):
+    '''文件路径获取文件名'''
+    return file_path.strip('/').strip('\\').rsplit('\\', 1)[-1].rsplit('/', 1)[-1]
+
+
+def get_relative_folder(full_path, work_path, is_file=True):
+    '''文件路径获取文件夹'''
+    work_name = get_file_name(work_path)
+    work_hone = work_path.strip('/').strip('\\').replace(work_name, '')
+    relative_path = full_path.strip('/').strip('\\').replace(work_hone, '')
+    file_name = relative_path.rsplit('\\', 1)[-1].rsplit('/', 1)[-1] if is_file else ''
+    return relative_path.replace(file_name, '').strip('/').strip('\\')
+
+
+def get_chunks(file, chunk_size=1):
+    while True:
+        data = file.read(chunk_size)
+        if not data: break
+        yield data

@@ -46,15 +46,20 @@ def decrypt(ksa, s):
     return b.decode("utf-8")
 
 
-def save_config(config):
-    with open(config_file, 'wb') as c:
-        dump(config, c)
+def save_config(cf):
+    with open(config_file, 'wb') as f:
+        dump(cf, f)
 
 
 class Config:
 
     def __init__(self):
         self._cookie = {}
+        self._username = ""
+        self._password = ""
+        self._sessionKey = ""
+        self._sessionSecret = ""
+        self._accessToken = ""
         self._save_path = './downloads'
         self._reader_mode = False
 
@@ -92,6 +97,58 @@ class Config:
     @cookie.setter
     def cookie(self, value):
         self._cookie = self.encode(value)
+        save_config(self)
+
+    @property
+    def username(self):
+        return self.decode(self._username)
+
+    @username.setter
+    def username(self, value):
+        self._username = self.encode(value)
+        save_config(self)
+
+    @property
+    def password(self):
+        return self.decode(self._password)
+
+    @password.setter
+    def password(self, value):
+        self._password = self.encode(value)
+        save_config(self)
+
+    @property
+    def key(self):
+        return self.decode(self._sessionKey)
+
+    @key.setter
+    def key(self, value):
+        self._sessionKey = self.encode(value)
+        save_config(self)
+
+    @property
+    def secret(self):
+        return self.decode(self._sessionSecret)
+
+    @secret.setter
+    def sectet(self, value):
+        self._sessionSecret = self.encode(value)
+        save_config(self)
+
+    @property
+    def token(self):
+        return self.decode(self._accessToken)
+
+    @token.setter
+    def token(self, value):
+        self._accessToken = self.encode(value)
+        save_config(self)
+
+    def set_token(self, key, secret, token):
+        '''设置全部'''
+        self._sessionKey = self.encode(key)
+        self._sessionSecret = self.encode(secret)
+        self._accessToken = self.encode(token)
         save_config(self)
 
     @property

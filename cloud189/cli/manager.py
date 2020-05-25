@@ -43,7 +43,7 @@ class TaskManager(object):
 
     @staticmethod
     def _show_task(pid, task):
-        now_size, total_size = task.get_process()
+        now_size, total_size, count = task.get_process()
         percent = now_size / total_size * 100
         has_error = len(task.get_err_msg()) != 0
         if task.is_alive():  # 任务执行中
@@ -51,14 +51,18 @@ class TaskManager(object):
         elif not task.is_alive() and has_error:  # 任务执行完成, 但是有错误信息
             status = '\033[1;31mError   \033[0m'
         else:  # 任务正常执行完成
+            percent = 100  # 可能更新不及时
             status = '\033[1;34mFinished\033[0m'
         if task.get_task_type() == TaskType.DOWNLOAD:
             d_arg, f_name = task.get_cmd_info()
             d_arg = f_name if type(d_arg) == int else d_arg  # 显示 id 对应的文件名
-            print(f"[{pid}] Status: {status} | Process: {percent:6.2f}% | Download: {d_arg}")
+            print(f"[{pid}] Status: {status} | Process: {percent:5.1f}% | Download: {d_arg}")
         else:
-            up_path, folder_name = task.get_cmd_info()
-            print(f"[{pid}] Status: {status} | Process: {percent:6.2f}% | Upload: {up_path} -> {folder_name}")
+            up_path, folder_name, quick_up = task.get_cmd_info()
+            if quick_up:
+                print(f"[{pid}] Status: {status} | Process: \033[1;34m秒传！\033[0m | Upload: {up_path}{' '+count if count else ''} -> {folder_name}")
+            else:
+                print(f"[{pid}] Status: {status} | Process: {percent:5.1f}% | Upload: {up_path}{' '+count if count else ''} -> {folder_name}")
 
     def show_tasks(self):
         if self.is_empty():
