@@ -1,6 +1,8 @@
 certifi
 chardet
 idna
+# 只有 Windows 用户需要安装 pyreadline
+# *nix 系统 Python 包含有 readline 模块
 pyreadline
 requests
 requests_toolbelt

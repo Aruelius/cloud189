@@ -19,31 +19,33 @@
     ```sh
     pip install -r requirements.txt
     ```
+> 注意 `pyreadline` 是专门为 `Windows` 设计的，`*nix` 中 python 标准库中一般默认包含 `readline` 模块，没有请看[这里](#jump)。
 
 3. 配置
 运行 ``python main.py``, 输入用户名与密码，  
 账号为自己的天翼云盘手机号，密码不会有回显，  
 也可以 直接两次回车后，输入 `clogin` 按提示输入 `cookie` 登录。  
-只简单加密 cookie 并保存至 `.config` 文件。
+所有信息**加密** 保存至 `.config` 文件。
 
 # 功能
 
-|命令                                 |描述                   |
+|命令                                 |描述                    |
 |-------------------------------------|-----------------------|
-|login                                |用户名+密码 登录       |
+|login                                |用户名+密码 登录         |
 |clogin                               |cookie 登录            |
-|ls     + `[-l] [文件夹]`             |列出文件与目录         |
-|cd     + `文件夹名`                  |切换工作目录           |
-|upload + `文件路径`                  |上传文件               |
-|down   + `文件名`                    |下载文件               |
-|mkdir  + `文件夹名`                  |创建文件夹             |
-|rm     + `文件/文件夹`               |删除文件(夹)           |
-|share  + `文件/文件夹`               |分享文件(夹)           |
-|jobs   + `[任务id]`                  |查看后台上传下载任务   |
-|clear                                |清屏                   |
-|rename + `文件(夹)名 [新名]`         |重命名                 |
-|mv*                                  |移动文件               |
-|bye/exit                             |退出                   |
+|refresh                              |刷新当前目录            |
+|clear                                |清屏                    |
+|ls     + `[-l] [文件夹]`              |列出文件与目录           |
+|cd     + `文件夹名`                   |切换工作目录             |
+|upload + `文件(夹)路径`                |上传文件(夹)            |
+|down   + `文件名`                     |下载文件                |
+|mkdir  + `文件夹名`                   |创建文件夹               |
+|rm     + `文件/文件夹`                 |删除文件(夹)            |
+|share  + `文件/文件夹`                 |分享文件(夹)            |
+|jobs   + `[任务id]`                   |查看后台上传下载任务      |
+|rename + `文件(夹)名 [新名]`           |重命名                  |
+|mv*                                  |移动文件                |
+|bye/exit                             |退出                    |
 
 *还未完成，在做了……
 
@@ -62,12 +64,14 @@ python main.py
 > bye
 ```
 
-2. 带上命令与参数  
+2. 带上命令与参数进入单任务模式 (`down`、`upload`目前有 bug，无法使用)
 ```sh
 python main.py upload '文件路径'
+# 或者
+./main.py upload '文件路径'
 ```  
 
-# 依赖
+# <span id="jump">依赖</span>
 如果在 Linux 运行出现
 ~~~shell
 import readline
@@ -88,4 +92,5 @@ yum install readline-devel
 
 # 致谢
 
-> [LanZouCloud-CMD](https://github.com/zaxtyson/LanZouCloud-CMD)
+> [LanZouCloud-CMD](https://github.com/zaxtyson/LanZouCloud-CMD)  
+> [Dawnnnnnn/Cloud189](https://github.com/Dawnnnnnn/Cloud189)
