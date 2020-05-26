@@ -285,10 +285,13 @@ class Cloud189(object):
                         callback(filepath, total_size, now_size)
                     if now_size == total_size:
                         self._upload_finished_flag = True
+                    logger.debug(f"Upload: {total_size=}, {now_size=}")
+            if callback is not None:  # 保证迭代完后，两者大小一样
+                callback(filepath, total_size, total_size)
 
         with open(filepath, 'rb') as f:
             total_size = os.path.getsize(filepath)  # Byte
-            _counts = (total_size / 4096) + 1  # KB
+            _counts = (total_size // 4096)  # KB
             chunks = get_chunks(f, 4096)
             data = _call_back(chunks, _counts)
 
