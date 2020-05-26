@@ -186,8 +186,9 @@ class Commander:
             else:  # 普通用户显示方式
                 for file in self._file_list:
                     star = '✦' if file.isStarred else '✧'
+                    file_name = handle_name(file.name) if file.size else f"\033[1;34m{handle_name(file.name)}\033[0m"
                     print("# {0:<17}{1:<4}{2:<20}{3:>8}  {4}".format(
-                        file.id, star, file.time, get_file_size_str(file.size), handle_name(file.name)))
+                        file.id, star, file.time, get_file_size_str(file.size), file_name))
         if fid != old_fid:
             self._file_list, _ = self._disk.get_file_list(old_fid)
 
