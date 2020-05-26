@@ -115,7 +115,7 @@ class TaskManager(object):
             if not follow:
                 print('-' * 100)
             if follow:
-                self._show_task_bar(follow)
+                self._show_task_bar(follow=follow)
             else:
                 for pid, task in enumerate(self._tasks):
                     self._show_task(pid, task)
