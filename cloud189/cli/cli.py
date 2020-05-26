@@ -1,4 +1,5 @@
 from getpass import getpass
+from random import choice
 from sys import exit as exit_cmd
 from webbrowser import open_new_tab
 
@@ -139,6 +140,7 @@ class Commander:
     def ll(self, args):
         """列出文件(夹)，详细模式"""
         self.ls(['-l', *args])
+        self.refresh() if choice([0, 1, 0]) else None # 1/3 概率刷新
 
     def ls(self, args):
         """列出文件(夹)"""
