@@ -3,7 +3,6 @@ from enum import Enum
 from threading import Thread
 
 from cloud189.api import Cloud189
-# from cloud189.api.utils import is_file_url, is_folder_url
 from cloud189.cli import config
 from cloud189.cli.utils import why_error
 

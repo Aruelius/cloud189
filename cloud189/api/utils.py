@@ -14,13 +14,12 @@ import rsa
 
 # 调试日志设置
 logger = logging.getLogger('cloud189')
-logger.setLevel(logging.ERROR)
-formatter = logging.Formatter(
-    fmt="%(asctime)s [line:%(lineno)d] %(funcName)s %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S")
-console = logging.StreamHandler()
-console.setFormatter(formatter)
-logger.addHandler(console)
+fmt_str = "%(asctime)s [%(filename)s:%(lineno)d] %(funcName)s %(levelname)s - %(message)s"
+logging.basicConfig(level=logging.DEBUG,
+                    filename="debug-cloud189.log",
+                    filemode="a",
+                    format=fmt_str,
+                    datefmt="%Y-%m-%d %H:%M:%S")
 
 API = 'https://api.cloud.189.cn'
 UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) ????/1.0.0 ' \

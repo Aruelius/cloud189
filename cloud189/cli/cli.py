@@ -8,7 +8,6 @@ from cloud189.api.token import get_token
 
 from cloud189.cli import config
 from cloud189.cli.downloader import Downloader, Uploader
-# from cloud189.cli.recovery import Recovery
 from cloud189.cli.manager import global_task_mgr
 from cloud189.cli.utils import *
 
@@ -73,16 +72,6 @@ class Commander:
         # rec.run()
         # self.refresh()
 
-    def xghost(self):
-        """扫描并删除幽灵文件夹"""
-        pass
-        # choice = input("需要清理幽灵文件夹吗(y): ")
-        # if choice and choice.lower() == 'y':
-        #     self._disk.clean_ghost_folders()
-        #     info("清理已完成")
-        # else:
-        #     info("清理操作已取消")
-
     def refresh(self, dir_id=None):
         """刷新当前文件夹和路径信息"""
         dir_id = self._work_id if dir_id is None else dir_id
@@ -137,9 +126,8 @@ class Commander:
         """注销"""
         clear_screen()
         self._prompt = '> '
-        self._disk.logout()
+        # self._disk.logout()  # TODO(rachpt@126.com): 还没有注销登录的方法
         self._file_list.clear()
-        # self._dir_list.clear()
         self._path_list = ''
         self._parent_id = -11
         self._work_id = -11
@@ -288,7 +276,7 @@ class Commander:
         else:
             error(f"文件(夹)不存在: {name}")
             return None
-        # ---- TODO
+        # TODO(rachpt@126.com): 需要一个获取所有文件夹名与 fid 的方法 用于移动文件
         path_list = self._disk.get_move_paths()
         path_list = {'/'.join(path.all_name): path[-1].id for path in path_list}
         choice_list = list(path_list.keys())
@@ -323,59 +311,58 @@ class Commander:
 
     def down(self, args):
         """自动选择下载方式"""
+        task_flag = False
+        follow = False
+        for arg in args:
+            if arg == '-f':
+                follow = True
+                args.remove(arg)
+        # TODO: 通过分享链接下载
         for item in args:
             if file := self._file_list.find_by_name(item):
                 downloader = Downloader(self._disk)
                 if file.isFolder:
+                    # TODO: 下载文件夹
                     print("暂不支持下载文件夹！")
                     continue
-                else:
+                else:  # 下载文件
                     path = '/'.join(self._path_list.all_name) + '/' + item  # 文件在网盘的绝对路径
                     downloader.set_fid(file.id, is_file=True, f_path=path)
-                    print("开始下载, 输入 jobs 查看下载进度...")
+                    task_flag = True
+                    self._task_mgr.add_task(downloader)  # 提交下载任务
             else:
                 error(f'文件(夹)不存在: {item}')
                 continue
-            # 提交下载任务
-            self._task_mgr.add_task(downloader)
-
-            # if arg.startswith('http'):
-            #     downloader.set_url(arg)
-            # elif file := self._file_list.find_by_name(arg):  # 如果是文件
-            #     path = '/'.join(self._path_list.all_name) + '/' + arg  # 文件在网盘的绝对路径
-            #     downloader.set_fid(file.id, is_file=True, f_path=path)
-            # elif folder := self._dir_list.find_by_name(arg):  # 如果是文件夹
-            #     path = '/'.join(self._path_list.all_name) + '/' + arg + '/'  # 文件夹绝对路径, 加 '/' 以便区分
-            #     downloader.set_fid(folder.id, is_file=False, f_path=path)
+        if follow and task_flag:
+            self.jobs(['-f', ])
+        elif task_flag:
+            print("开始下载, 输入 jobs 查看下载进度...")
 
     def jobs(self, args):
         """显示后台任务列表"""
+        follow = False
+        for arg in args:
+            if arg == '-f':
+                follow = True
+                args.remove(arg)
         if not args:
-            self._task_mgr.show_tasks()
+            self._task_mgr.show_tasks(follow)
         for arg in args:
             if arg.isnumeric():
-                self._task_mgr.show_detail(int(arg))
+                self._task_mgr.show_detail(int(arg), follow)
             else:
-                self._task_mgr.show_tasks()
-
-    # def call_back(self, fname, current, size):
-    #     print(f"{fname=}, {current=}, {size=}")
-
-    # def upload(self, args):
-    #     if not args:
-    #         info('参数：文件路径')
-    #     for path in args:
-    #         path = path.strip('\"\' ')  # 去除直接拖文件到窗口产生的引号
-    #         if not os.path.exists(path):
-    #             error(f'该路径不存在哦: {path}')
-    #             continue
-    #         self._disk.upload_file_by_client(path, self._work_id, self.call_back)
+                self._task_mgr.show_tasks(follow)
 
     def upload(self, args):
         """上传文件(夹)"""
         if not args:
             info('参数：文件路径')
         task_flag = False
+        follow = False
+        for arg in args:
+            if arg == '-f':
+                follow = True
+                args.remove(arg)
         for path in args:
             path = path.strip('\"\' ')  # 去除直接拖文件到窗口产生的引号
             if not os.path.exists(path):
@@ -389,7 +376,9 @@ class Commander:
             uploader.set_target(self._work_id, self._work_name)
             self._task_mgr.add_task(uploader)
             task_flag = True
-        if task_flag:
+        if follow and task_flag:
+            self.jobs(['-f',])
+        elif task_flag:
             print("开始上传, 输入 jobs 查看上传进度...")
 
     def share(self, args):
@@ -484,27 +473,29 @@ class Commander:
 
     def setsize(self):
         """设置上传限制"""
-        print(f"当前限制(MB): {config.max_size}")
-        max_size = input('修改为 -> ')
-        if not max_size.isnumeric():
-            error("请输入大于 100 的数字")
-            return None
-        if self._disk.set_max_size(int(max_size)) != Cloud189.SUCCESS:
-            error("设置失败，限制值必需大于 100")
-            return None
-        config.max_size = int(max_size)
+        pass
+        # print(f"当前限制(MB): {config.max_size}")
+        # max_size = input('修改为 -> ')
+        # if not max_size.isnumeric():
+        #     error("请输入大于 100 的数字")
+        #     return None
+        # if self._disk.set_max_size(int(max_size)) != Cloud189.SUCCESS:
+        #     error("设置失败，限制值必需大于 100")
+        #     return None
+        # config.max_size = int(max_size)
 
     def setdelay(self):
         """设置大文件上传延时"""
-        print("大文件数据块上传延时范围(秒), 如: 0 60")
-        print(f"当前配置: {config.upload_delay}")
-        tr = input("请输入延时范围: ").split()
-        if len(tr) != 2:
-            error("格式有误!")
-            return None
-        tr = (int(tr[0]), int(tr[1]))
-        self._disk.set_upload_delay(tr)
-        config.upload_delay = tr
+        pass
+        # print("大文件数据块上传延时范围(秒), 如: 0 60")
+        # print(f"当前配置: {config.upload_delay}")
+        # tr = input("请输入延时范围: ").split()
+        # if len(tr) != 2:
+        #     error("格式有误!")
+        #     return None
+        # tr = (int(tr[0]), int(tr[1]))
+        # self._disk.set_upload_delay(tr)
+        # config.upload_delay = tr
 
     def setpasswd(self):
         """设置文件(夹)默认上传密码"""
@@ -518,15 +509,21 @@ class Commander:
             config.default_dir_pwd = '' if dir_pwd == 'off' else dir_pwd
         info(f"修改成功: 文件: {config.default_file_pwd or '无'}, 文件夹: {config.default_dir_pwd or '无'}, 配置将在下次启动时生效")
 
-    def run_one(self, cmd, arg):
-        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout', 'refresh', 'rmode', 'setpath',
-                      'setsize', 'update', 'xghost', 'setdelay', 'setpasswd']
-        cmd_with_arg = ['ls', 'll', 'cd', 'desc', 'down', 'jobs', 'mkdir', 'mv', 'passwd', 'rename', 'rm', 'share', 'upload']
+    def run_one(self, cmd, args):
+        """运行单任务入口"""
+        no_arg_cmd = ['help', 'logout', 'update']
+        cmd_with_arg = ['ls', 'll', 'down', 'mkdir', 'mv', 'rename', 'rm', 'share', 'upload']
+
+        if cmd in ("upload", "down"):
+            if "-f" not in args:
+                args.append("-f")
 
         if cmd in no_arg_cmd:
             getattr(self, cmd)()
         elif cmd in cmd_with_arg:
-            getattr(self, cmd)(arg)
+            getattr(self, cmd)(args)
+        else:
+            print(f"命令有误，或者不支持单任务运行 {cmd}")
 
     def handle_args(self, args: str) -> list:
         ''''处理参数列表'''
@@ -559,9 +556,9 @@ class Commander:
         return result
 
     def run(self):
-        """处理一条用户命令"""
+        """处理交互模式用户命令"""
         no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout', 'refresh', 'rmode', 'setpath',
-                      'setsize', 'update', 'xghost', 'setdelay', 'setpasswd']
+                      'setsize', 'update', 'setdelay', 'setpasswd']
         cmd_with_arg = ['ls', 'll', 'cd', 'desc', 'down', 'jobs', 'mkdir', 'mv', 'passwd', 'rename', 'rm', 'share', 'upload']
 
         choice_list = [handle_name(i) for i in self._file_list.all_name]  # 引号包裹空格文件名

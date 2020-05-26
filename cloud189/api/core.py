@@ -288,8 +288,8 @@ class Cloud189(object):
 
         with open(filepath, 'rb') as f:
             total_size = os.path.getsize(filepath)  # Byte
-            _counts = (total_size / 1024) + 1  # KB
-            chunks = get_chunks(f, 1024)
+            _counts = (total_size / 4096) + 1  # KB
+            chunks = get_chunks(f, 4096)
             data = _call_back(chunks, _counts)
 
             resp = requests.put(url, data=data, headers=headers)
@@ -525,6 +525,7 @@ class Cloud189(object):
                     now_size += len(chunk)
                     if callback is not None:
                         callback(infos['fileName'], total_size, now_size)
+        logger.debug(f"{total_size=}, {now_size=}")
         return Cloud189.SUCCESS
 
     def delete_by_id(self, fid):

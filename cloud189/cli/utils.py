@@ -9,6 +9,8 @@ from cloud189.api import Cloud189
 from cloud189.cli import version
 
 
+GIT_REPO = "Aruelius/cloud189"
+
 def error(msg):
     print(f"\033[1;31mError : {msg}\033[0m")
 
@@ -135,7 +137,7 @@ def print_logo():
 #   \______/ |__/ \______/  \______/  \_______/|______/ \______/  \______/ 
 #                                                                          
 --------------------------------------------------------------------------
-      Github: https://github.com/Aruelius/cloud189 (Version: {version})
+      Github: https://github.com/{GIT_REPO} (Version: {version})
 --------------------------------------------------------------------------
     """
     print(logo_str)
@@ -143,43 +145,36 @@ def print_logo():
 
 def print_help():
     clear_screen()
-    help_text = f"""
-    • 天翼云盘-cli v{version}
-    • 支持大文件上传，无视文件格式限制
-    • 支持直链提取，批量上传下载，断点续传功能
+    help_text = f""" cloud189-cli | 天翼云盘客户端 for {sys.platform} | v{version}
+    • 支持文件秒传，文件夹保持相对路径上传
+    • 获取文件分享链接，批量上传下载，断点续传等功能
     
     命令帮助 :
     help        显示本信息
     update      检查更新
-    rmode       屏幕阅读器模式
+    *rmode      屏幕阅读器模式
     refresh     强制刷新文件列表
-    xghost      清理"幽灵"文件夹
     login       使用账号密码登录网盘
     clogin      使用 Cookie 登录网盘
-    logout      注销当前账号
+    logout*     注销当前账号
     jobs        查看后台任务列表   
-    ls          列出文件(夹)
+    ls          列出文件(夹)，仅文件名
+    ll          列出文件(夹)，详细
     cd          切换工作目录
-    cdrec       进入回收站
     rm          删除网盘文件(夹)
     rename      重命名文件(夹)
-    desc        修改文件(夹)描述
-    mv          移动文件(夹)
-    mkdir       创建新文件夹(最大深度 4)
+    *mv         移动文件(夹)
+    mkdir       创建新文件夹
     share       显示文件(夹)分享信息
     clear       清空屏幕
-    clean       清空回收站
     upload      上传文件(夹)
-    down        下载文件(夹)，支持 URL 下载
-    passwd      设置文件(夹)提取码
+    down        下载文件 # TODO: 下载文件夹、url
     setpath     设置文件下载路径
-    setsize     设置单文件大小限制
-    setpasswd   设置文件(夹)默认提取码
-    setdelay    设置上传大文件数据块的延时
-    bye         退出本程序
+    bye/exit    退出本程序
     
+    * 表示目前版本无法使用。
     更详细的介绍请参考本项目的 Github 主页:
-    https://github.com/Aruelius/cloud189   
+    https://github.com/{GIT_REPO}   
     如有 Bug 反馈或建议请在 GitHub 提 Issue
     感谢您的使用 (●'◡'●)
     """
@@ -190,7 +185,7 @@ def check_update():
     """检查更新"""
     clear_screen()
     print("正在检测更新...")
-    api = "https://api.github.com/repos/Aruelius/cloud189/releases/latest"
+    api = f"https://api.github.com/repos/{GIT_REPO}/releases/latest"
     tag_name = None
     try:
         resp = requests.get(api).json()
@@ -211,9 +206,9 @@ def check_update():
             print(f"\n@Windows 更新:")
             print(f"Github: {update_url}")
             print("\n@Linux 更新:")
-            input("git clone https://github.com/Aruelius/cloud189.git")
+            input(f"git clone https://github.com/{GIT_REPO}.git")
         else:
             print("(*/ω＼*) 暂无新版本发布~")
             print("但项目可能已经更新，建议去项目主页看看")
             print("如有 Bug 或建议,请提 Issue")
-            print("Github: https://github.com/Aruelius/cloud189")
+            print(f"Github: https://github.com/{GIT_REPO}")
