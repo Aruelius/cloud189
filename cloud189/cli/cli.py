@@ -239,6 +239,7 @@ class Commander:
         for name in args:
             if file := self._file_list.find_by_name(name):
                 self._disk.delete_by_id(file.id)
+                print(f"删除：{name} 成功！")
             else:
                 error(f"无此文件：{name}")
         self.refresh()
