@@ -7,3 +7,4 @@ pyreadline
 requests
 requests_toolbelt
 rsa
+six
