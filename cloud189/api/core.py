@@ -622,7 +622,7 @@ class Cloud189(object):
         total_size = int(resp.headers['Content-Length'])
 
         # ---
-        file_path = save_path + os.sep + infos['fileName']
+        file_path = save_path + os.sep + infos.name
         logger.debug(f'Save file to {file_path=}')
         if os.path.exists(file_path):
             now_size = os.path.getsize(file_path)  # 本地已经下载的文件大小
@@ -644,7 +644,7 @@ class Cloud189(object):
                     f.flush()
                     now_size += len(chunk)
                     if callback is not None:
-                        callback(infos['fileName'], total_size, now_size)
+                        callback(infos.name, total_size, now_size)
         logger.debug(f"{total_size=}, {now_size=}")
         return Cloud189.SUCCESS
 
