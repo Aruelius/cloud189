@@ -11,7 +11,7 @@ __all__ = ['FileInfo', 'RecInfo',  'PathInfo', 'UpCode', 'MkCode', 'ShareCode', 
 _file_info = ('name', 'id', 'pid', 'ctime', 'optime', 'size', 'ftype', 'isFolder', 'isStarred', 'account', 'durl', 'count')
 FileInfo = namedtuple('FileInfo', _file_info, defaults=('',) * len(_file_info))
 # 回收站文件
-RecInfo = namedtuple('RecInfo', ['name', 'id', 'pid', 'time', 'size', 'type', 'durl', 'isFolder', 'isFamily', 'path', 'fid'], defaults=('',) * 11)
+RecInfo = namedtuple('RecInfo', ['name', 'id', 'pid', 'ctime', 'optime', 'size', 'type', 'durl', 'isFolder', 'isFamily', 'path', 'fid'], defaults=('',) * 12)
 # 文件路径
 PathInfo = namedtuple('PathInfo', ['name', 'id', 'isCoShare'])
 

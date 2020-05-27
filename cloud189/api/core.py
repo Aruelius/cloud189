@@ -171,14 +171,15 @@ class Cloud189(object):
                 name = item['fileName']
                 fid = item['fileId']
                 pid = item['parentId']
-                opt_time = item['lastOpTime']
+                ctime = item['createTime']
+                optime = item['lastOpTime']
                 size = item['fileSize']
                 ftype = item['fileType']
                 durl = item['downloadUrl']
                 isFolder = item['isFolder']
                 isFamily = item['isFamilyFile']
                 path = item['pathStr']
-                all_file_lists.append(RecInfo(name, fid, pid, opt_time, size, ftype, durl, isFolder, isFamily, path, familyId))
+                all_file_lists.append(RecInfo(name, fid, pid, ctime, optime, size, ftype, durl, isFolder, isFamily, path, familyId))
             logger.debug(f"RecycleBin{page=}: {resp['recordCount']=}, {resp['pageNum']=}, {resp['pageSize']=}")
             return resp['recordCount'] > resp['pageNum'] * resp['pageSize']
         while _get_one_page(page):  # TODO(rachpt): 大于 60 条记录需要验证是否正确

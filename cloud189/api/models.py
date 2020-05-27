@@ -98,9 +98,9 @@ class ItemList:
         res = ''
         if item := self.find_by_id(fid):
             if item.pid:
-                res = self.get_absolute_path(item.pid) + item.name
+                res = self.get_absolute_path(item.pid) + '/' + item.name
             else:
-                res = item.name + '/' + res
+                res = item.name + res
         return res
 
     def get_path_id(self) -> dict:
