@@ -5,7 +5,6 @@
 
 __all__ = ['FileList', 'PathList', 'TreeList']
 
-from cloud189.api.utils import logger
 
 class ItemList:
     """具有 name, id 属性对象的列表"""
@@ -42,10 +41,10 @@ class ItemList:
     def append(self, item, repeat=True):
         """在末尾插入元素"""
         if (not repeat) and self.find_by_id(item.id):
-            logger.debug(f"List: 不插入元素 {item.name}")
-            return
+            # logger.debug(f"List: 不插入元素 {item.name}")
+            return None
         self._items.append(item)
-        logger.debug(f"List: 插入元素  {item.name}")
+        # logger.debug(f"List: 插入元素  {item.name}")
 
     def index(self, item):
         """获取索引"""

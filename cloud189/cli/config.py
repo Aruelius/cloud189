@@ -11,7 +11,7 @@ config_file = os.path.dirname(sys.argv[0]) + os.sep + '.config'
 def encrypt(key, s):
     b = bytearray(str(s).encode("utf-8"))
     n = len(b)
-    c = bytearray(n*2)
+    c = bytearray(n * 2)
     j = 0
     for i in range(0, n):
         b1 = b[i]
@@ -21,8 +21,8 @@ def encrypt(key, s):
         c1 = c1 + 46
         c2 = c2 + 46
         c[j] = c1
-        c[j+1] = c2
-        j = j+2
+        c[j + 1] = c2
+        j = j + 2
     return c.decode("utf-8")
 
 
@@ -64,8 +64,8 @@ class Config:
         self._reader_mode = False
 
     def _save(self):
-        with open(self._config_file, 'wb') as c:
-            dump(self._config, c)
+        with open(config_file, 'wb') as cf:
+            dump(self, cf)
 
     def encode(self, var):
         if isinstance(var, dict):
@@ -85,8 +85,7 @@ class Config:
                 dvar = decrypt(KEY, var)
             else:
                 dvar = None
-        except Exception as e:
-            # print(e)
+        except Exception:
             dvar = None
         return dvar
 

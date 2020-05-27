@@ -57,7 +57,8 @@ class Cloud189(object):
             kwargs.setdefault('headers', self._headers)
             return self._session.get(url, verify=False, **kwargs)
         except requests.Timeout:
-            logger.warning("Encountered timeout error while requesting network!")
+            logger.warning(
+                "Encountered timeout error while requesting network!")
             raise TimeoutError
         except (requests.RequestException, Exception) as e:
             logger.error(f"Unexpected error: {e=}")
@@ -68,7 +69,8 @@ class Cloud189(object):
             kwargs.setdefault('headers', self._headers)
             return self._session.post(url, data, verify=False, **kwargs)
         except requests.Timeout:
-            logger.warning("Encountered timeout error while requesting network!")
+            logger.warning(
+                "Encountered timeout error while requesting network!")
             raise TimeoutError
         except (requests.RequestException, Exception) as e:
             logger.error(f"Unexpected error: {e=}")
@@ -88,7 +90,8 @@ class Cloud189(object):
         return self._session.cookies.get_dict()
 
     def _redirect(self):
-        r = self._get(self._host_url + "/udb/udb_login.jsp?pageId=1&redirectURL=/main.action")
+        r = self._get(self._host_url
+                      + "/udb/udb_login.jsp?pageId=1&redirectURL=/main.action")
         captchaToken = re.findall(r"captchaToken' value='(.+?)'", r.text)[0]
         lt = re.findall(r'lt = "(.+?)"', r.text)[0]
         returnUrl = re.findall(r"returnUrl = '(.+?)'", r.text)[0]
@@ -109,7 +112,8 @@ class Cloud189(object):
         if r.text != "0":  # 需要验证码
             if self._captcha_handler:
                 pic_url = self._auth_url + "picCaptcha.do"
-                img_data = self._get(pic_url, params={"token": captchaToken}).content
+                img_data = self._get(
+                    pic_url, params={"token": captchaToken}).content
                 captcha = self._captcha_handler(img_data)  # 用户手动识别验证码
             else:
                 logger.error("没有验证码处理函数！")
@@ -123,10 +127,13 @@ class Cloud189(object):
                 self._session.cookies.set(k, v, domain=".cloud.189.cn")
             resp = self._get(self._host_url + "/v2/getUserLevelInfo.action")
             if "InvalidSessionKey" not in resp.text:
-                try: self.set_session(config.key, config.secret, config.token)
-                except: pass
+                try:
+                    self.set_session(config.key, config.secret, config.token)
+                except:
+                    pass
                 return Cloud189.SUCCESS
-        except: pass
+        except:
+            pass
         return Cloud189.FAILED
 
     def login(self, username, password):
@@ -144,7 +151,7 @@ class Cloud189(object):
             "returnUrl": returnUrl,
             "mailSuffix": "@189.cn",
             "paramId": paramId
-            }
+        }
         r = self._post(url, data=data)
         msg = r.json()["msg"]
         if msg == "登录成功":
@@ -153,42 +160,73 @@ class Cloud189(object):
         print(msg)
         return Cloud189.FAILED
 
+    def _get_more_page(self, resp: dict, r_path=False) -> (list, bool):
+        """处理可能需要翻页的请求信息"""
+        if resp['pageNum'] * resp['pageSize'] >= resp['recordCount']:
+            done = True  # 没有了
+        else:
+            done = False
+        if r_path:
+            return [resp['data'], resp['path']], done
+        else:
+            return resp['data'], done
+
     def get_rec_file_list(self) -> FileList:
         """获取回收站文件夹列表"""
-        global all_file_lists
-        all_file_lists = FileList()
+        results = FileList()
         page = 1
+        data = []
         url = self._host_url + '/v2/listRecycleBin.action'
-        def _get_one_page(page: int=1) -> bool:
-            """返回 True 表示还有文件需要获取"""
-            global all_file_lists
+
+        while True:
             resp = self._get(url, params={'pageNum': page, 'pageSize': 60})
             if not resp:
-                return all_file_lists
+                return None
             resp = resp.json()
             familyId = resp['familyId']
-            for item in resp['data']:
-                name = item['fileName']
-                fid = item['fileId']
-                pid = item['parentId']
-                ctime = item['createTime']
-                optime = item['lastOpTime']
-                size = item['fileSize']
-                ftype = item['fileType']
-                durl = item['downloadUrl']
-                isFolder = item['isFolder']
-                isFamily = item['isFamilyFile']
-                path = item['pathStr']
-                all_file_lists.append(RecInfo(name, fid, pid, ctime, optime, size, ftype, durl, isFolder, isFamily, path, familyId))
-            logger.debug(f"RecycleBin{page=}: {resp['recordCount']=}, {resp['pageNum']=}, {resp['pageSize']=}")
-            return resp['recordCount'] > resp['pageNum'] * resp['pageSize']
-        while _get_one_page(page):  # TODO(rachpt): 大于 60 条记录需要验证是否正确
-            page += 1
-            if not _get_one_page(page):
+            data_, done = self._get_more_page(resp)
+            data.extend(data_)
+            if done:
                 break
-        return all_file_lists
+            page += 1
+            sleep(0.5)  # 大量请求可能会被限制
 
-    def _batch_task(self, file_info, action: str, target_id: str='') -> int:
+        for item in data:
+            name = item['fileName']
+            id_ = item['fileId']
+            pid = item['parentId']
+            ctime = item['createTime']
+            optime = item['lastOpTime']
+            size = item['fileSize']
+            ftype = item['fileType']
+            durl = item['downloadUrl']
+            isFolder = item['isFolder']
+            isFamily = item['isFamilyFile']
+            path = item['pathStr']
+            results.append(RecInfo(name=name, id=id_, pid=pid, ctime=ctime, optime=optime, size=size,
+                                   ftype=ftype, isFolder=isFolder, durl=durl, isFamily=isFamily, path=path,
+                                   fid=familyId))
+        return results
+        # def _get_one_page(page: int = 1) -> bool:
+        #     """返回 True 表示还有文件需要获取"""
+        #     global all_file_lists
+        #     resp = self._get(url, params={'pageNum': page, 'pageSize': 60})
+        #     if not resp:
+        #         return all_file_lists
+        #     resp = resp.json()
+        #     familyId = resp['familyId']
+        #     for item in resp['data']:
+
+        #     logger.debug(
+        #         f"RecycleBin{page=}: {resp['recordCount']=}, {resp['pageNum']=}, {resp['pageSize']=}")
+        #     return resp['recordCount'] > resp['pageNum'] * resp['pageSize']
+        # while _get_one_page(page):  # TODO(rachpt): 大于 60 条记录需要验证是否正确
+        #     page += 1
+        #     if not _get_one_page(page):
+        #         break
+        # return all_file_lists
+
+    def _batch_task(self, file_info, action: str, target_id: str = '') -> int:
         """公共批处理请求
         :param file_info: FolderInfo、RecInfo、RecInfo
         :param action:    RESTORE、DELETE、MOVE、COPY
@@ -203,12 +241,13 @@ class Cloud189(object):
         }
 
         create_url = self._host_url + "/createBatchTask.action"
-        post_data = {"type": action, "taskInfos": json.dumps([task_info,])}
+        post_data = {"type": action, "taskInfos": json.dumps([task_info, ])}
         if target_id:
             post_data.update({"targetFolderId": target_id})
         resp = self._post(create_url, data=post_data)
         task_id = resp.text.strip('"').strip('\'')
-        logger.debug(f"Text: {resp.text=}, {task_id=}, {action=}, {target_id=}")
+        logger.debug(
+            f"Text: {resp.text=}, {task_id=}, {action=}, {target_id=}")
         if not task_id:
             logger.debug(f"Batch_task: {resp.status_code=}")
             return Cloud189.FAILED
@@ -223,7 +262,8 @@ class Cloud189(object):
             if 'taskStatus' in resp:
                 return resp['taskStatus']
             else:
-                logger.debug(f"BatchTask[_check]{post_data=},{task_id=},{resp=}")
+                logger.debug(
+                    f"BatchTask[_check]{post_data=},{task_id=},{resp=}")
                 return 5  # 防止无限循环
 
         task_status = 0
@@ -239,7 +279,8 @@ class Cloud189(object):
     def rec_delete(self, file_info):
         """回收站删除文件"""
         url = self._host_url + '/v2/deleteFile.action'
-        resp = self._get(url, params={'familyId': file_info.fid, 'fileIdList': file_info.id})
+        resp = self._get(
+            url, params={'familyId': file_info.fid, 'fileIdList': file_info.id})
         if resp and resp.json()['success']:
             return Cloud189.SUCCESS
         else:
@@ -290,33 +331,50 @@ class Cloud189(object):
         """获取文件列表"""
         file_list = FileList()
         path_list = PathList()
+        page = 1
+        data_path = []
+        data = []
+        path = []
         url = self._host_url + "/v2/listFiles.action"
-        params = {
-            "fileId": str(fid),
-            "inGroupSpace": "false",
-            "orderBy": "1",
-            "order": "ASC",
-            "pageNum": "1",
-            "pageSize": "60"
-        }
-        resp = self._get(url, params=params).json()
-        if 'data' not in resp:
-            print(resp)
-        for info in resp["data"]:
-            name = info['fileName']
-            _id = int(info['fileId'])
-            pid = int(info['parentId'])
-            ctime = info['createTime']
-            optime = info['lastOpTime']
-            size = info['fileSize'] if 'fileSize' in info else ''
-            ftype = info['fileType']
-            durl = info['downloadUrl'] if 'downloadUrl' in info else ''
-            isFolder = info['isFolder']
-            isStarred = info['isStarred']
-            file_list.append(FileInfo(name=name, id=_id, pid=pid, ctime=ctime, optime=optime, size=size,
+        while True:
+            params = {
+                "fileId": str(fid),
+                "inGroupSpace": "false",
+                "orderBy": "1",
+                "order": "ASC",
+                "pageNum": page,
+                "pageSize": 60
+            }
+            resp = self._get(url, params=params)
+            if not resp:
+                return None
+            resp = resp.json()
+            data_, done = self._get_more_page(resp, r_path=True)
+            data_path.append(data_)
+            if done:
+                break
+            page += 1
+            sleep(0.5)  # 大量请求可能会被限制
+        for data_ in data_path:
+            data.extend(data_[0])
+            if not path:
+                path = data_[1]  # 不同 page 路径因该是一样的
+        for item in data:
+            name = item['fileName']
+            id_ = int(item['fileId'])
+            pid = int(item['parentId'])
+            ctime = item['createTime']
+            optime = item['lastOpTime']
+            size = item['fileSize'] if 'fileSize' in item else ''
+            ftype = item['fileType']
+            durl = item['downloadUrl'] if 'downloadUrl' in item else ''
+            isFolder = item['isFolder']
+            isStarred = item['isStarred']
+            file_list.append(FileInfo(name=name, id=id_, pid=pid, ctime=ctime, optime=optime, size=size,
                                       ftype=ftype, durl=durl, isFolder=isFolder, isStarred=isStarred))
-        for info in resp["path"]:
-            path_list.append(PathInfo(info['fileName'], int(info['fileId']), info['isCoShare']))
+        for item in path:
+            path_list.append(PathInfo(name=item['fileName'], id=int(item['fileId']),
+                                      isCoShare=item['isCoShare']))
 
         return file_list, path_list
 
@@ -348,7 +406,8 @@ class Cloud189(object):
                 "resumePolicy": 1,
                 "isLog": 0
             }
-            resp = requests.post(url, headers=headers, data=post_data, timeout=10)
+            resp = requests.post(url, headers=headers,
+                                 data=post_data, timeout=10)
             if resp.json()['res_message'] == "UserDayFlowOverLimited":
                 logger.error("当前登录账号每日传输流量已用尽")
                 code = Cloud189.FAILED
@@ -357,9 +416,11 @@ class Cloud189(object):
                 file_upload_url = resp.json()['fileUploadUrl']
                 file_commit_url = resp.json()['fileCommitUrl']
                 file_data_exists = resp.json()['fileDataExists']
-                logger.debug(f"创建上传任务成功,上传节点为 {file_upload_url.split('//')[1].split('.')[0]}")
+                logger.debug(
+                    f"创建上传任务成功,上传节点为 {file_upload_url.split('//')[1].split('.')[0]}")
                 code = Cloud189.SUCCESS
-                infos = (upload_file_id, file_upload_url, file_commit_url, file_data_exists)
+                infos = (upload_file_id, file_upload_url,
+                         file_commit_url, file_data_exists)
             else:
                 logger.error(f'未知回显{resp.text=},{resp.json()}, 请联系开发者')
                 code = Cloud189.FAILED
@@ -384,6 +445,7 @@ class Cloud189(object):
         }
 
         self._upload_finished_flag = False  # 上传完成的标志
+
         def _call_back(it, total_size):
             for now_size, item in enumerate(it):
                 yield item
@@ -407,7 +469,8 @@ class Cloud189(object):
                 node = ElementTree.XML(resp.text)
                 if node.text == "error":
                     if node.findtext('code') != 'UploadFileCompeletedError':
-                        logger.error(f"上传文件数据时发生错误{node.findtext('code')},{node.findtext('message')}")
+                        logger.error(
+                            f"上传文件数据时发生错误{node.findtext('code')},{node.findtext('message')}")
                         return Cloud189.FAILED
             else:
                 logger.debug(f"上传文件{filepath}成功!")
@@ -434,11 +497,13 @@ class Cloud189(object):
                 "isLog": 0,
                 "ResumePolicy": 1
             }
-            resp = requests.post(url, data=post_data, headers=headers, timeout=10)
+            resp = requests.post(url, data=post_data,
+                                 headers=headers, timeout=10)
             node = ElementTree.XML(resp.text)
             if node.text != 'error':
                 fid = node.findtext('id')
-                logger.debug(f"于[{node.findtext('createDate')}]上传[{node.findtext('name')}]({node.findtext('id')})成功")
+                logger.debug(
+                    f"于[{node.findtext('createDate')}]上传[{node.findtext('name')}]({node.findtext('id')})成功")
             else:
                 logger.error(f'{resp.text=}')
         except Exception:
@@ -454,15 +519,18 @@ class Cloud189(object):
         if code == Cloud189.SUCCESS:
             upload_file_id, file_upload_url, file_commit_url, file_data_exists = infos
             if file_data_exists == 1:  # 数据存在，进入秒传流程
-                fid = self._upload_client_commit(file_commit_url, upload_file_id)
+                fid = self._upload_client_commit(
+                    file_commit_url, upload_file_id)
                 if not fid:
                     code = Cloud189.FAILED
                 quick_up = True
             else:  # 上传文件数据
-                code = self._upload_file_data(file_upload_url, upload_file_id, file_path, callback)
+                code = self._upload_file_data(
+                    file_upload_url, upload_file_id, file_path, callback)
                 if code != Cloud189.SUCCESS:
                     return UpCode(code)
-                fid = self._upload_client_commit(file_commit_url, upload_file_id)
+                fid = self._upload_client_commit(
+                    file_commit_url, upload_file_id)
                 quick_up = False
             return UpCode(code, fid, quick_up)
         else:
@@ -516,12 +584,14 @@ class Cloud189(object):
         def _call_back(read_monitor):
             if callback is not None:
                 if not self._upload_finished_flag:
-                    callback(filename, read_monitor.len, read_monitor.bytes_read)
+                    callback(filename, read_monitor.len,
+                             read_monitor.bytes_read)
                 if read_monitor.len == read_monitor.bytes_read:
                     self._upload_finished_flag = True
 
         monitor = MultipartEncoderMonitor(post_data, _call_back)
-        result = self._post(upload_url, data=monitor, headers=headers, timeout=None)
+        result = self._post(upload_url, data=monitor,
+                            headers=headers, timeout=None)
         if not result:  # 网络异常
             return UpCode(Cloud189.NETWORK_ERROR)
         else:
@@ -558,18 +628,21 @@ class Cloud189(object):
                 f_rfolder = get_relative_folder(f_path, folder_path)
                 logger.debug(f"{f_rfolder=}")
                 if f_rfolder not in dir_dict:
-                    dir_dict[f_rfolder] = '' 
+                    dir_dict[f_rfolder] = ''
                 upload_files.append((f_path, dir_dict[f_rfolder]))
             for _dir in dirs:
-                p_rfolder = get_relative_folder(home, folder_path, is_file=False)
+                p_rfolder = get_relative_folder(
+                    home, folder_path, is_file=False)
                 logger.debug(f"{p_rfolder=}, {home=}, {folder_path=}")
                 dir_rname = p_rfolder + os.sep + _dir  # 文件夹相对路径
 
                 result = self.mkdir(dir_dict[p_rfolder], _dir)
                 if result.code != Cloud189.SUCCESS:
-                    logger.error(f"上传文件夹中创建文件夹{dir_rname=} 失败！{folder_name=}, {dir_dict[p_rfolder]=}")
+                    logger.error(
+                        f"上传文件夹中创建文件夹{dir_rname=} 失败！{folder_name=}, {dir_dict[p_rfolder]=}")
                     return Cloud189.FAILED
-                logger.debug(f"成功上传文件夹{folder_name=}, {dir_dict[p_rfolder]=}, {dir_rname=}, {result.id}")
+                logger.debug(
+                    f"成功上传文件夹{folder_name=}, {dir_dict[p_rfolder]=}, {dir_rname=}, {result.id}")
                 dir_dict[dir_rname] = result.id
         results = []
         for upload_file in upload_files:
@@ -593,8 +666,8 @@ class Cloud189(object):
         # lastOpTime        # parentId
         # subFileCount
         name = resp['fileName']
-        _id = resp['fileId']
-        pid = resp['parentId']
+        id_ = int(resp['fileId'])
+        pid = int(resp['parentId'])
         ctime = resp['createTime']
         optime = resp['lastOpTime']
         size = resp['fileSize']
@@ -603,7 +676,7 @@ class Cloud189(object):
         account = resp['createAccount']
         durl = resp['downloadUrl'] if 'downloadUrl' in resp else ''
         count = resp['subFileCount'] if 'subFileCount' in resp else ''
-        return FileInfo(name=name, id=_id, pid=pid, ctime=ctime, optime=optime, size=size,
+        return FileInfo(name=name, id=id_, pid=pid, ctime=ctime, optime=optime, size=size,
                         ftype=ftype, isFolder=isFolder, account=account, durl=durl, count=count)
 
     def down_file_by_id(self, fid, save_path='./Download', callback=None) -> int:
@@ -695,7 +768,8 @@ class Cloud189(object):
     def mkdir(self, parent_id, fname):
         '''新建文件夹'''
         url = self._host_url + '/v2/createFolder.action'
-        result = self._get(url, params={'parentId': str(parent_id), 'fileName': fname})
+        result = self._get(
+            url, params={'parentId': str(parent_id), 'fileName': fname})
         if not result:
             return MkCode(Cloud189.NETWORK_ERROR)
         result = result.json()
@@ -727,23 +801,113 @@ class Cloud189(object):
         url = self._host_url + "/getObjectFolderNodes.action"
         post_data = {"orderBy": '1', 'order': 'ASC'}
         deep = 1
+
         def _get_sub_folder(fid, deep):
             if fid:
                 post_data.update({"id": str(fid)})
-            params = {'pageNum': 1, 'pageSize': 500}
+            params = {'pageNum': 1, 'pageSize': 500}  # 应该没有大于 500 个文件夹的吧？
             resp = self._post(url, params=params, data=post_data)
             if not resp:
                 return
             for folder in resp.json():
                 name = folder['name']
-                _id = int(folder['id'])
+                id_ = int(folder['id'])
                 pid = int(folder['pId']) if 'pId' in folder else ''
                 isParent = folder['isParent']  # str
-                tree.append(FolderTree(name=name, id=_id, pid=pid, isParent=isParent), repeat=False)
-                logger.debug(f"Sub Folder: {name=}, {_id=}, {pid=}, {isParent=}")
+                tree.append(FolderTree(name=name, id=id_, pid=pid,
+                                       isParent=isParent), repeat=False)
+                logger.debug(
+                    f"Sub Folder: {name=}, {id_=}, {pid=}, {isParent=}")
                 if deep < max_deep:
-                    _get_sub_folder(_id, deep+1)
+                    _get_sub_folder(id_, deep + 1)
 
         _get_sub_folder(fid, deep)
         logger.debug(f"Sub Folder Tree len: {len(tree)}")
         return tree
+
+    def list_share_url(self, stype: int, page: int = 1) -> FileList:
+        """列出自己的分享文件、转存的文件链接
+        :params stype:  1 发出的分享，2 收到的分享
+        :params page:   页面，60 条记录一页
+        :return:        FileList 类
+        """
+        get_url = self._host_url + "/v2/listShares.action"
+        data = []
+        while True:
+            params = {"shareType": stype, "pageNum": page, "pageSize": 60}
+            resp = self._get(get_url, params=params)
+            if not resp:
+                return None
+            resp = resp.json()
+            data_, done = self._get_more_page(resp)
+            data.extend(data_)
+            if done:
+                break
+            page += 1
+            sleep(0.5)  # 大量请求可能会被限制
+        results = FileList()
+        for item in data:
+            name = item['fileName']
+            id_ = item['fileId']
+            ctime = item['shareTime']
+            size = item['fileSize']
+            ftype = item['fileType']
+            isFolder = item['isFolder']
+            pwd = item['accessCode']
+            copyC = item['accessCount']['copyCount']
+            downC = item['accessCount']['downloadCount']
+            prevC = item['accessCount']['previewCount']
+            url = item['accessURL']
+            durl = item['downloadUrl']
+            path = item['filePath']
+            need_pwd = item['needAccessCode']
+            s_type = item['shareType']
+            s_mode = item['shareMode']
+            r_stat = item['reviewStatus']
+
+            results.append(ShareInfo(name=name, id=id_, ctime=ctime, size=size, ftype=ftype,
+                                     isFolder=isFolder, pwd=pwd, copyC=copyC, downC=downC, prevC=prevC,
+                                     url=url, durl=durl, path=path, need_pwd=need_pwd, s_type=s_type,
+                                     s_mode=s_mode, r_stat=r_stat))
+
+        return results
+
+    def get_info_by_share_id(self, share_id, pwd=''):
+        """获取 share id 中的文件信息"""
+        pass
+
+    def get_file_info_by_url(self, share_url, pwd=''):
+        """通过分享链接获取信息"""
+
+        first_page = requests.get(share_url, headers=self._headers)
+        if not first_page:
+            logger.error("网络错误!")
+            return None
+        first_page = first_page.text
+        # 抱歉，您访问的页面地址有误，或者该页面不存在
+        if '您访问的页面地址有误' in first_page:
+            logger.debug(f"分享链接已经取消 {share_url}")
+            return None
+        share_id = re.search(r"_shareId = '(\w+?)';", first_page).group(1)
+        verify_code = re.search(r"_verifyCode = '(\w+?)';", first_page).group(1)
+
+        page = 1
+
+        info_url = self._host_url + '/v2/listShareDir.action'
+        params = {
+            'shareId': share_id,
+            'verifyCode': verify_code,
+            'orderBy': 1,
+            'order': 'ASC',
+            'pageNum': page,
+            'pageSize': 60
+        }
+        result = requests.get(info_url, params=params, headers=self._headers)
+
+        if not result:
+            return None
+        result = result.json()
+        if 'errorVO' in result:
+            logger.debug("需要 密码！")
+            return None
+        # TODO:

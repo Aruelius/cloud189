@@ -2,13 +2,11 @@ from getpass import getpass
 from random import choice
 from sys import exit as exit_cmd
 from webbrowser import open_new_tab
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List
 
 from cloud189.api import Cloud189
 from cloud189.api.models import FileList, PathList
 from cloud189.api.token import get_token
-from cloud189.api.utils import logger 
+from cloud189.api.utils import logger
 
 from cloud189.cli import config
 from cloud189.cli.downloader import Downloader, Uploader
@@ -51,7 +49,7 @@ class Commander:
 
     def bye(self):
         if self._task_mgr.has_alive_task():
-            info(f"有任务在后台运行, 退出请直接关闭窗口")
+            info("有任务在后台运行, 退出请直接关闭窗口")
         else:
             exit_cmd(0)
 
@@ -110,7 +108,6 @@ class Commander:
                 self._disk.set_session(*token)
         self.refresh()
 
-
     def clogin(self):
         """使用 cookie 登录"""
         open_new_tab('https://cloud.189.cn')
@@ -143,7 +140,7 @@ class Commander:
     def ll(self, args):
         """列出文件(夹)，详细模式"""
         self.ls(['-l', *args])
-        self.refresh() if choice([0, 1, 0]) else None # 1/3 概率刷新
+        self.refresh() if choice([0, 1, 0]) else None  # 1/3 概率刷新
 
     def ls(self, args):
         """列出文件(夹)"""
@@ -159,7 +156,7 @@ class Commander:
                     flag_full = True
                     fname = args[0]
                 else:
-                    info(f"暂不支持查看多个文件！")
+                    info("暂不支持查看多个文件！")
                     fname = args[0]
             else:
                 if args[0] == '-l':
@@ -187,11 +184,12 @@ class Commander:
         else:
             if self._reader_mode:  # 方便屏幕阅读器阅读
                 for file in self._file_list:
-                    print(f"{handle_name(file.name)}  大小:{get_file_size_str(file.size)}  上传时间:{file.ctime}  ID:{file.id}")
+                    print(
+                        f"{handle_name(file.name)}  大小:{get_file_size_str(file.size)}  上传时间:{file.ctime}  ID:{file.id}")
             else:  # 普通用户显示方式
                 for file in self._file_list:
-                    star = '✦' if file.isStarred else '✧'
-                    file_name = handle_name(file.name) if file.size else f"\033[1;34m{handle_name(file.name)}\033[0m"
+                    star = '✦' if file.isStarred else '✧'  # 好像 没什么卵用
+                    file_name = f"\033[1;34m{handle_name(file.name)}\033[0m" if file.isFolder else handle_name(file.name)
                     print("# {0:<17}{1:<4}{2:<20}{3:>8}  {4}".format(
                         file.id, star, file.ctime, get_file_size_str(file.size), file_name))
         if fid != old_fid:
@@ -238,7 +236,7 @@ class Commander:
         """删除文件(夹)"""
         if not args:
             info('参数：删除文件夹(夹)名')
-            return
+            return None
         for name in args:
             if file := self._file_list.find_by_name(name):
                 self._disk.delete_by_id(file.id)
@@ -253,15 +251,15 @@ class Commander:
         if not name:
             info('参数：原文件名 [新文件名]')
         elif file := self._file_list.find_by_name(name):
-            new = args[1].strip(' ') if len(args) == 2 else input(f"请输入新文件名：")
+            new = args[1].strip(' ') if len(args) == 2 else input("请输入新文件名：")
             logger.debug(f"{new=}, {args=}")
             code = self._disk.rename(file.id, new)
             if code == Cloud189.SUCCESS:
                 self.refresh()
             elif code == Cloud189.NETWORK_ERROR:
-                error(f'网络错误，请重试！')
+                error('网络错误，请重试！')
             else:
-                error(f'失败，未知错误！')
+                error('失败，未知错误！')
         else:
             error(f'没有找到文件(夹): {name}')
 
@@ -333,7 +331,8 @@ class Commander:
                     print("暂不支持下载文件夹！")
                     continue
                 else:  # 下载文件
-                    path = '/'.join(self._path_list.all_name) + '/' + item  # 文件在网盘的绝对路径
+                    path = '/'.join(self._path_list.all_name) + \
+                        '/' + item  # 文件在网盘的绝对路径
                     downloader.set_fid(file.id, is_file=True, f_path=path)
                     task_flag = True
                     self._task_mgr.add_task(downloader)  # 提交下载任务
@@ -384,7 +383,7 @@ class Commander:
             self._task_mgr.add_task(uploader)
             task_flag = True
         if follow and task_flag:
-            self.jobs(['-f',])
+            self.jobs(['-f', ])
         elif task_flag:
             print("开始上传, 输入 jobs 查看上传进度...")
 
@@ -393,7 +392,7 @@ class Commander:
         name = args[0]
         if not name:
             info('参数：需要分享的文件 [1/2/3] [1/2]')
-            return
+            return None
         if file := self._file_list.find_by_name(name):
             et = args[1] if len(args) >= 2 else None
             ac = args[2] if len(args) >= 3 else None
@@ -419,55 +418,19 @@ class Commander:
         else:
             error(f"文件(夹)不存在: {name}")
 
-    # def passwd(self, name):
-    #     """设置文件(夹)提取码"""
-    #     if file := self._file_list.find_by_name(name):  # 文件
-    #         inf = self._disk.get_share_info(file.id, True)
-    #         new_pass = input(f'修改提取码 "{inf.pwd or "无"}" -> ')
-    #         if 2 <= len(new_pass) <= 6:
-    #             if new_pass == 'off': new_pass = ''
-    #             if self._disk.set_passwd(file.id, str(new_pass), True) != Cloud189.SUCCESS:
-    #                 error('设置文件提取码失败')
-    #             self.refresh()
-    #         else:
-    #             error('提取码为2-6位字符,关闭请输入off')
-    #     elif folder := self._dir_list.find_by_name(name):  # 文件夹
-    #         inf = self._disk.get_share_info(folder.id, False)
-    #         new_pass = input(f'修改提取码 "{inf.pwd or "无"}" -> ')
-    #         if 2 <= len(new_pass) <= 12:
-    #             if new_pass == 'off': new_pass = ''
-    #             if self._disk.set_passwd(folder.id, str(new_pass), False) != Cloud189.SUCCESS:
-    #                 error('设置文件夹提取码失败')
-    #             self.refresh()
-    #         else:
-    #             error('提取码为2-12位字符,关闭请输入off')
-    #     else:
-    #         error(f'文件(夹)不存在: {name}')
-
-    # def desc(self, name):
-    #     """设置文件描述"""
-    #     if file := self._file_list.find_by_name(name):  # 文件
-    #         inf = self._disk.get_share_info(file.id, True)
-    #         print(f"当前描述: {inf.desc or '无'}")
-    #         desc = input(f'修改为 -> ')
-    #         if not desc:
-    #             error(f'文件描述不允许为空')
-    #             return None
-    #         if self._disk.set_desc(file.id, str(desc), True) != Cloud189.SUCCESS:
-    #             error(f'文件描述修改失败')
-    #         self.refresh()
-    #     elif folder := self._dir_list.find_by_name(name):  # 文件夹
-    #         inf = self._disk.get_share_info(folder.id, False)
-    #         print(f"当前描述: {inf.desc}")
-    #         desc = input(f'修改为 -> ') or ''
-    #         if self._disk.set_desc(folder.id, str(desc), False) == Cloud189.SUCCESS:
-    #             if len(desc) == 0:
-    #                 info('文件夹描述已关闭')
-    #         else:
-    #             error(f'文件夹描述修改失败')
-    #         self.refresh()
-    #     else:
-    #         error(f'文件(夹)不存在: {name}')
+    def shared(self, args):
+        """显示分享文件"""
+        stype = 1  # 默认查看 发出的分享
+        if args and args[0] == '2':
+            stype = 2  # 收到的分享
+        all_file = self._disk.list_share_url(stype)
+        if not all_file:
+            info("失败或者没有数据！")
+            return None
+        for item in all_file:
+            f_name = item.name if item.isFolder else f"\033[1;34m{item.name}\033[0m"  # 给你点颜色..
+            print("https:{0:<30} 提取码: {1:>4} [转存/下载/浏览: {2}/{3}/{4}] 文件名: {5}".format(
+                item.url, item.pwd, item.copyC, item.downC, item.prevC, f_name))
 
     def setpath(self):
         """设置下载路径"""
@@ -477,19 +440,6 @@ class Commander:
             config.save_path = path
         else:
             error('路径非法,取消修改')
-
-    def setsize(self):
-        """设置上传限制"""
-        pass
-        # print(f"当前限制(MB): {config.max_size}")
-        # max_size = input('修改为 -> ')
-        # if not max_size.isnumeric():
-        #     error("请输入大于 100 的数字")
-        #     return None
-        # if self._disk.set_max_size(int(max_size)) != Cloud189.SUCCESS:
-        #     error("设置失败，限制值必需大于 100")
-        #     return None
-        # config.max_size = int(max_size)
 
     def setdelay(self):
         """设置大文件上传延时"""
@@ -504,22 +454,11 @@ class Commander:
         # self._disk.set_upload_delay(tr)
         # config.upload_delay = tr
 
-    def setpasswd(self):
-        """设置文件(夹)默认上传密码"""
-        print("关闭提取码请输入 off")
-        print(f"当前配置: 文件: {config.default_file_pwd or '无'}, 文件夹: {config.default_dir_pwd or '无'}")
-        file_pwd = input("设置文件默认提取码(2-6位): ")
-        if 2 <= len(file_pwd) <= 6:
-            config.default_file_pwd = '' if file_pwd == 'off' else file_pwd
-        dir_pwd = input("设置文件夹默认提取码(2-12位): ")
-        if 2 <= len(dir_pwd) <= 12:
-            config.default_dir_pwd = '' if dir_pwd == 'off' else dir_pwd
-        info(f"修改成功: 文件: {config.default_file_pwd or '无'}, 文件夹: {config.default_dir_pwd or '无'}, 配置将在下次启动时生效")
-
     def run_one(self, cmd, args):
         """运行单任务入口"""
         no_arg_cmd = ['help', 'logout', 'update']
-        cmd_with_arg = ['ls', 'll', 'down', 'mkdir', 'mv', 'rename', 'rm', 'share', 'upload']
+        cmd_with_arg = ['ls', 'll', 'down', 'mkdir',
+                        'mv', 'rename', 'rm', 'share', 'upload']
 
         if cmd in ("upload", "down"):
             if "-f" not in args:
@@ -532,43 +471,15 @@ class Commander:
         else:
             print(f"命令有误，或者不支持单任务运行 {cmd}")
 
-    def handle_args(self, args: str) -> list:
-        ''''处理参数列表'''
-        result = []
-        arg = ''
-        i = 0
-        flag_1 = False  # 标记 "
-        flag_2 = False  # 标记 '
-        while i < len(args):
-            if flag_1 and args[i] != '"':
-                arg += args[i]
-            elif flag_2 and args[i] != '\'':
-                arg += args[i]
-            elif args[i] not in (' ', '\\', '"', '\''):
-                arg += args[i]
-            elif args[i] == '\\' and i < len(args) and args[i+1] == ' ':
-                arg += ' '
-                i += 1  # 额外前进一步
-            elif args[i] == ' ':
-                if arg:
-                    result.append(arg)
-                    arg = ''  # 新的参数
-            elif args[i] == '"':
-                flag_1 = not flag_1
-            elif args[i] == '\'':
-                flag_2 = not flag_2
-            i += 1
-        if arg:
-            result.append(arg)
-        return result
-
     def run(self):
         """处理交互模式用户命令"""
-        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout', 'refresh', 'rmode', 'setpath',
-                      'setsize', 'update', 'setdelay', 'setpasswd']
-        cmd_with_arg = ['ls', 'll', 'cd', 'desc', 'down', 'jobs', 'mkdir', 'mv', 'passwd', 'rename', 'rm', 'share', 'upload']
+        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout',
+                      'refresh', 'rmode', 'setpath', 'update', 'setdelay']
+        cmd_with_arg = ['ls', 'll', 'cd', 'down', 'jobs', 'shared',
+                        'mkdir', 'mv', 'rename', 'rm', 'share', 'upload']
 
-        choice_list = [handle_name(i) for i in self._file_list.all_name]  # 引号包裹空格文件名
+        choice_list = [handle_name(i)
+                       for i in self._file_list.all_name]  # 引号包裹空格文件名
         cmd_list = no_arg_cmd + cmd_with_arg
         set_completer(choice_list, cmd_list=cmd_list)
 
@@ -581,7 +492,8 @@ class Commander:
             info('退出本程序请输入 bye 或 exit')
             return None
 
-        cmd, args = (args[0], []) if len(args) == 1 else (args[0], self.handle_args(args[1]))  # 命令, 参数(可带有空格, 没有参数就设为空)
+        cmd, args = (args[0], []) if len(args) == 1 else (
+            args[0], handle_args(args[1]))  # 命令, 参数(可带有空格, 没有参数就设为空)
 
         if cmd in no_arg_cmd:
             getattr(self, cmd)()

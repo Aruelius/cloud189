@@ -21,6 +21,7 @@ class Recovery:
         else:  # 普通用户的显示方式
             for file in self._file_list:
                 print("#{0:<18}{1:<21} {3:>9} {4}\t{2}".format(file.id, file.optime, file.name, get_file_size_str(file.size), file.path))
+        print('总文件数: ', len(self._file_list))
 
     def clean(self):
         """清空回收站"""

@@ -1,5 +1,5 @@
 from cloud189.cli.config import config
 
-version = '0.0.2'
+version = '0.0.3'
 
-__all__ = ['cli', 'utils', 'version', 'config', 'reprint']
+__all__ = ['cli', 'utils', 'version', 'config']

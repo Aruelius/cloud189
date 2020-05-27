@@ -1,7 +1,6 @@
 import time
 import threading
 
-from cloud189.api.utils import logger
 from cloud189.cli.downloader import TaskType
 from cloud189.cli.utils import info, error
 from cloud189.cli.reprint import output  # 修改了 magic_char
@@ -72,7 +71,8 @@ class TaskManager(object):
 
     @staticmethod
     def _show_task(pid, task, follow=False):
-        TaskManager.running = True # 相当于每次执行 jobs -f 都初始化
+        TaskManager.running = True  # 相当于每次执行 jobs -f 都初始化
+
         def stop_show_task():
             """
             停止显示任务状态
@@ -102,7 +102,7 @@ class TaskManager(object):
             if quick_up:  # 文件秒传没有大小
                 break
         if now_size == total_size:
-            msg, _ = TaskManager._size_to_msg(now_size, total_size, count, pid,task)
+            msg, _ = TaskManager._size_to_msg(now_size, total_size, count, pid, task)
             if follow and TaskManager.running:
                 output_list[pid] = msg
         if follow and TaskManager.running:

@@ -11,6 +11,7 @@ from cloud189.cli import version
 
 GIT_REPO = "Aruelius/cloud189"
 
+
 def error(msg):
     print(f"\033[1;31mError : {msg}\033[0m")
 
@@ -81,7 +82,7 @@ def captcha_handler(img_data):
     elif m_platform == 'Linux':
         os.system(f'xdg-open {img_path}')
     else:
-        os.startfile(img_path)
+        os.startfile(img_path)  # windows
     ans = input('\n请输入验证码:')
     os.remove(img_path)
     return ans
@@ -102,6 +103,37 @@ def handle_name(name: str) -> str:
     if ' ' in name:
         name = "'" + name + "'"
     return name
+
+
+def handle_args(args: str) -> list:
+    '''处理参数列表，返回参数列表'''
+    result = []
+    arg = ''
+    i = 0
+    flag_1 = False  # 标记 "
+    flag_2 = False  # 标记 '
+    while i < len(args):
+        if flag_1 and args[i] != '"':
+            arg += args[i]
+        elif flag_2 and args[i] != '\'':
+            arg += args[i]
+        elif args[i] not in (' ', '\\', '"', '\''):
+            arg += args[i]
+        elif args[i] == '\\' and i < len(args) and args[i + 1] == ' ':
+            arg += ' '
+            i += 1  # 额外前进一步
+        elif args[i] == ' ':
+            if arg:
+                result.append(arg)
+                arg = ''  # 新的参数
+        elif args[i] == '"':
+            flag_1 = not flag_1
+        elif args[i] == '\'':
+            flag_2 = not flag_2
+        i += 1
+    if arg:
+        result.append(arg)
+    return result
 
 
 def set_completer(choice_list, *, cmd_list=None, condition=None):
@@ -148,7 +180,7 @@ def print_help():
     help_text = f""" cloud189-cli | 天翼云盘客户端 for {sys.platform} | v{version}
     • 支持文件秒传，文件夹保持相对路径上传
     • 获取文件分享链接，批量上传下载，断点续传等功能
-    
+
     命令帮助 :
     help        显示本信息
     update      检查更新
@@ -171,7 +203,7 @@ def print_help():
     down        下载文件 # TODO: 下载文件夹、url
     setpath     设置文件下载路径
     bye/exit    退出本程序
-    
+
     * 表示目前版本无法使用。
     更详细的介绍请参考本项目的 Github 主页:
     https://github.com/{GIT_REPO}   
@@ -203,10 +235,10 @@ def check_update():
         if remote_version > local_version:
             print(f"程序可以更新 v{version} -> {tag_name}")
             print(f"\n@更新说明:\n{msg}")
-            print(f"\n@Windows 更新:")
+            print("\n@Windows 更新:")
             print(f"Github: {update_url}")
             print("\n@Linux 更新:")
-            input(f"git clone https://github.com/{GIT_REPO}.git")
+            input(f"git clone --depth=1 https://github.com/{GIT_REPO}.git")
         else:
             print("(*/ω＼*) 暂无新版本发布~")
             print("但项目可能已经更新，建议去项目主页看看")
