@@ -72,11 +72,26 @@ class TaskManager(object):
 
     @staticmethod
     def _show_task(pid, task, follow=False):
+        TaskManager.running = True # 相当于每次执行 jobs -f 都初始化
+        def stop_show_task():
+            """
+            停止显示任务状态
+            问题：由于线程执行的是阻塞操作，不知道自己被结束了，
+                  它还在等待一个 input，所以在任务状态 Finnish 之后需要回车。
+            """
+            while TaskManager.running:
+                stop_signal = input()
+                if stop_signal:
+                    TaskManager.running = False
+                time.sleep(1)
+        if follow: threading.Thread(target=stop_show_task).start()
         global output_list
         now_size, total_size, count = task.get_process()
         # TODO： 出现 now_size > total_size, 断点续传出了问题
         msg, quick_up = TaskManager._size_to_msg(now_size, total_size, count, pid, task)
         while now_size < total_size:
+            if not TaskManager.running:
+                break
             msg, quick_up = TaskManager._size_to_msg(now_size, total_size, count, pid, task)
             if follow:
                 output_list[pid] = msg
@@ -88,12 +103,13 @@ class TaskManager(object):
                 break
         if now_size == total_size:
             msg, _ = TaskManager._size_to_msg(now_size, total_size, count, pid,task)
-            if follow:
+            if follow and TaskManager.running:
                 output_list[pid] = msg
-        if follow:
+        if follow and TaskManager.running:
             output_list.append(f"[{pid}] finished")
-        else:
-            print(msg)
+            TaskManager.running = False
+        elif not TaskManager.running: pass
+        else: print(msg)
 
     def _show_task_bar(self, pid=None, follow=False):
         """多行更新状态栏"""
