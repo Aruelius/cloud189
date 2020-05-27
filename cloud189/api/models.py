@@ -3,8 +3,9 @@
 元素类型为 namedtuple，至少拥有 name id 两个属性才能放入容器
 """
 
-__all__ = ['FolderList']
+__all__ = ['FileList', 'PathList', 'TreeList']
 
+from cloud189.api.utils import logger
 
 class ItemList:
     """具有 name, id 属性对象的列表"""
@@ -38,9 +39,13 @@ class ItemList:
         """所有 item 的 name 列表"""
         return [it.name for it in self]
 
-    def append(self, item):
+    def append(self, item, repeat=True):
         """在末尾插入元素"""
+        if (not repeat) and self.find_by_id(item.id):
+            logger.debug(f"List: 不插入元素 {item.name}")
+            return
         self._items.append(item)
+        logger.debug(f"List: 插入元素  {item.name}")
 
     def index(self, item):
         """获取索引"""
@@ -89,7 +94,35 @@ class ItemList:
         data.update(kwargs)
         self._items[pos] = item.__class__(**data)
 
+    def get_absolute_path(self, fid) -> str:
+        res = ''
+        if item := self.find_by_id(fid):
+            if item.pid:
+                res = self.get_absolute_path(item.pid) + item.name
+            else:
+                res = item.name + '/' + res
+        return res
 
-class FolderList(ItemList):
-    """文件夹列表类"""
+    def get_path_id(self) -> dict:
+        """获取文件路径-id"""
+        result = {}
+        for item in self._items:
+            _id = item.id
+            full_path = self.get_absolute_path(_id)
+            result[full_path] = _id
+        return result
+
+
+class FileList(ItemList):
+    """文件列表类"""
+    pass
+
+
+class PathList(ItemList):
+    """路径列表类"""
+    pass
+
+
+class TreeList(ItemList):
+    """文件夹结构类"""
     pass

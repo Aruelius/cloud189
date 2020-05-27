@@ -1,6 +1,7 @@
 import time
 import threading
 
+from cloud189.api.utils import logger
 from cloud189.cli.downloader import TaskType
 from cloud189.cli.utils import info, error
 from cloud189.cli.reprint import output  # 修改了 magic_char

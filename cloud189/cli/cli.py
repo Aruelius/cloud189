@@ -2,14 +2,18 @@ from getpass import getpass
 from random import choice
 from sys import exit as exit_cmd
 from webbrowser import open_new_tab
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List
 
 from cloud189.api import Cloud189
-from cloud189.api.models import FolderList
+from cloud189.api.models import FileList, PathList
 from cloud189.api.token import get_token
+from cloud189.api.utils import logger 
 
 from cloud189.cli import config
 from cloud189.cli.downloader import Downloader, Uploader
 from cloud189.cli.manager import global_task_mgr
+from cloud189.cli.recovery import Recovery
 from cloud189.cli.utils import *
 
 
@@ -21,8 +25,8 @@ class Commander:
         self._disk = Cloud189()
         self._task_mgr = global_task_mgr
         self._dir_list = ''
-        self._file_list = FolderList()
-        self._path_list = FolderList()
+        self._file_list = FileList()
+        self._path_list = PathList()
         self._parent_id = -11
         self._parent_name = ''
         self._work_name = ''
@@ -68,10 +72,9 @@ class Commander:
 
     def cdrec(self):
         """进入回收站模式"""
-        pass
-        # rec = Recovery(self._disk)
-        # rec.run()
-        # self.refresh()
+        rec = Recovery(self._disk)
+        rec.run()
+        self.refresh()
 
     def refresh(self, dir_id=None):
         """刷新当前文件夹和路径信息"""
@@ -184,13 +187,13 @@ class Commander:
         else:
             if self._reader_mode:  # 方便屏幕阅读器阅读
                 for file in self._file_list:
-                    print(f"{handle_name(file.name)}  大小:{get_file_size_str(file.size)}  上传时间:{file.time}  ID:{file.id}")
+                    print(f"{handle_name(file.name)}  大小:{get_file_size_str(file.size)}  上传时间:{file.ctime}  ID:{file.id}")
             else:  # 普通用户显示方式
                 for file in self._file_list:
                     star = '✦' if file.isStarred else '✧'
                     file_name = handle_name(file.name) if file.size else f"\033[1;34m{handle_name(file.name)}\033[0m"
                     print("# {0:<17}{1:<4}{2:<20}{3:>8}  {4}".format(
-                        file.id, star, file.time, get_file_size_str(file.size), file_name))
+                        file.id, star, file.ctime, get_file_size_str(file.size), file_name))
         if fid != old_fid:
             self._file_list, _ = self._disk.get_file_list(old_fid)
 
@@ -251,6 +254,7 @@ class Commander:
             info('参数：原文件名 [新文件名]')
         elif file := self._file_list.find_by_name(name):
             new = args[1].strip(' ') if len(args) == 2 else input(f"请输入新文件名：")
+            logger.debug(f"{new=}, {args=}")
             code = self._disk.rename(file.id, new)
             if code == Cloud189.SUCCESS:
                 self.refresh()
@@ -263,55 +267,54 @@ class Commander:
 
     def mv(self, args):
         """移动文件或文件夹"""
-        info('目前还未完成！')
-        return
         name = args[0]
         if not name:
-            info('参数：文件名 [新文件夹名]')
-        if len(args) >= 2:
-            new = args[1]
-
-        if file := self._file_list.find_by_name(name):
-            taskInfo = {"fileId": str(file.id),
-                        "srcParentId": str(file.pid),
-                        "fileName": file.name,
-                        "isFolder": 1 if file.isFolder else 0 }
-
+            info('参数：文件(夹)名 [新文件夹名]')
+        folder_name = ''
+        if len(args) == 1:
+            file_info = self._file_list.find_by_name(name)
+            if not file_info:
+                error(f"文件(夹)不存在: {name}")
+                return None
         else:
-            error(f"文件(夹)不存在: {name}")
-            return None
-        # TODO(rachpt@126.com): 需要一个获取所有文件夹名与 fid 的方法 用于移动文件
-        path_list = self._disk.get_move_paths()
-        path_list = {'/'.join(path.all_name): path[-1].id for path in path_list}
-        choice_list = list(path_list.keys())
-        '''
-        def _condition(typed_str, choice_str):
-            path_depth = len(choice_str.split('/'))
-            # 没有输入时, 补全 Cloud189,深度 1
-            if not typed_str and path_depth == 1:
-                return True
-            # Cloud189/ 深度为 2,补全同深度的文件夹 Cloud189/test 、Cloud189/txt
-            # Cloud189/tx 应该补全 Cloud189/txt
-            if path_depth == len(typed_str.split('/')) and choice_str.startswith(typed_str):
-                return True
+            folder_name = args[-1]
 
-        set_completer(choice_list, condition=_condition)
-        choice = input('请输入路径(TAB键补全) : ')
-        if not choice or choice not in choice_list:
-            error(f"目标路径不存在: {choice}")
+        info("正在获取所有文件夹信息，请稍后...")
+        tree_list = self._disk.get_folder_nodes()
+        if not tree_list:
+            error("获取文件夹信息出错，请重试.")
             return None
-        folder_id = path_list.get(choice)
-        if is_file:
-            if self._disk.move_file(fid, folder_id) == Cloud189.SUCCESS:
-                self._file_list.pop_by_id(fid)
+        if folder_name:
+            if folder := tree_list.find_by_name(folder_name):
+                target_id = folder.id
             else:
-                error(f"移动文件到 {choice} 失败")
+                error(f"文件夹 {folder_name} 不存在！")
+                return None
         else:
-            if self._disk.move_folder(fid, folder_id) == Cloud189.SUCCESS:
-                self._dir_list.pop_by_id(fid)
-            else:
-                error(f"移动文件夹到 {choice} 失败")
-        '''
+            tree_dict = tree_list.get_path_id()
+            choice_list = list(tree_dict.keys())
+
+            def _condition(typed_str, choice_str):
+                path_depth = len(choice_str.split('/'))
+                # 没有输入时, 补全 Cloud189,深度 1
+                if not typed_str and path_depth == 1:
+                    return True
+                # Cloud189/ 深度为 2,补全同深度的文件夹 Cloud189/test 、Cloud189/txt
+                # Cloud189/tx 应该补全 Cloud189/txt
+                if path_depth == len(typed_str.split('/')) and choice_str.startswith(typed_str):
+                    return True
+
+            set_completer(choice_list, condition=_condition)
+            print(choice_list)
+            choice = input('请输入路径(TAB键补全) : ')
+            if not choice or choice not in choice_list:
+                error(f"目标路径不存在: {choice}")
+                return None
+            target_id = tree_dict.get(choice)
+        if self._disk.move_file(file_info, target_id) == Cloud189.SUCCESS:
+            self._file_list.pop_by_id(file_info.id)
+        else:
+            error(f"移动文件(夹)到 {choice} 失败")
 
     def down(self, args):
         """自动选择下载方式"""
@@ -398,7 +401,7 @@ class Commander:
             if result.code == Cloud189.SUCCESS:
                 print("-" * 50)
                 print(f"{'文件夹名' if file.isFolder else '文件名  '} : {name}")
-                print(f"上传时间 : {file.time}")
+                print(f"上传时间 : {file.ctime}")
                 if not file.isFolder:
                     print(f"文件大小 : {get_file_size_str(file.size)}")
                 print(f"分享链接 : {result.url}")
