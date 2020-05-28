@@ -34,6 +34,9 @@ FlhDeqVOG094hFJvZeK4OzA6HVwzwnEW5vIZ7d+u61RV1bsFxmB68+8JXs3ycGcE
 4anY+YzZJcyOcEGKVQIDAQAB
 -----END PUBLIC KEY-----
 """
+b64map = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+BI_RM = list("0123456789abcdefghijklmnopqrstuvwxyz")
+
 
 def encrypt(password: str) -> str:
     return b64encode(
@@ -43,11 +46,10 @@ def encrypt(password: str) -> str:
         )
     ).decode()
 
-b64map = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-BI_RM = list("0123456789abcdefghijklmnopqrstuvwxyz")
 
 def int2char(a):
     return BI_RM[a]
+
 
 def b64tohex(a):
     d = ""
@@ -143,3 +145,13 @@ def get_chunks(file, chunk_size=1):
         data = file.read(chunk_size)
         if not data: break
         yield data
+
+
+def get_down_chunk_size_scale(total_size: int) -> int:
+    """获取文件下载 块系数"""
+    if total_size >= 1024 * 1024 * 1024:  # 1 GB
+        return 10
+    elif total_size >= 1024 * 1024 * 100:  # 100 MB
+        return 4
+    else:
+        return 1

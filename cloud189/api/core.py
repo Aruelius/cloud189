@@ -694,21 +694,24 @@ class Cloud189(object):
             return Cloud189.FAILED
         total_size = int(resp.headers['Content-Length'])
 
-        # ---
         file_path = save_path + os.sep + infos.name
-        logger.debug(f'Save file to {file_path=}')
         if os.path.exists(file_path):
             now_size = os.path.getsize(file_path)  # 本地已经下载的文件大小
+            if now_size >= total_size:  # 已经下载完成
+                if callback is not None:
+                    callback(infos.name, total_size, now_size)
+                return Cloud189.SUCCESS
         else:
             now_size = 0
-        chunk_size = 4096
+        logger.debug(f'Download file info: {file_path=}, {now_size=}, {total_size=}')
+
+        scale = get_down_chunk_size_scale(total_size)
+        chunk_size = 1024 * 1024 * scale  # scale * 1 MB
         headers = {**self._headers, 'Range': 'bytes=%d-' % now_size}
         resp = self._get(durl, stream=True, headers=headers)
 
         if not resp:
             return Cloud189.FAILED
-        # if resp.status_code == 416:  # 已经下载完成
-        #     return Cloud189.SUCCESS
 
         with open(file_path, "ab") as f:
             for chunk in resp.iter_content(chunk_size):
@@ -718,7 +721,7 @@ class Cloud189(object):
                     now_size += len(chunk)
                     if callback is not None:
                         callback(infos.name, total_size, now_size)
-        logger.debug(f"{total_size=}, {now_size=}")
+        logger.debug(f"Dwonload finished: {total_size=}, {now_size=}")
         return Cloud189.SUCCESS
 
     def delete_by_id(self, fid):
