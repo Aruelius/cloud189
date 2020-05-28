@@ -232,11 +232,10 @@ def check_update():
     api = f"https://api.github.com/repos/{GIT_REPO}/releases/latest"
     tag_name = None
     try:
-        resp = requests.get(api).json()
+        resp = requests.get(api, timeout=3).json()
         tag_name, msg = resp['tag_name'], resp['body']
-        update_url = resp['assets'][0]['browser_download_url']
-    except (requests.RequestException, AttributeError, KeyError):
-        error("检查更新时发生异常")
+    except (requests.RequestException, AttributeError, KeyError) as err:
+        error(f"检查更新时发生异常{err=}")
         input()
         return None
     if tag_name:
@@ -247,8 +246,6 @@ def check_update():
         if remote_version > local_version:
             print(f"程序可以更新 v{version} -> {tag_name}")
             print(f"\n@更新说明:\n{msg}")
-            print("\n@Windows 更新:")
-            print(f"Github: {update_url}")
             print("\n@Linux 更新:")
             input(f"git clone --depth=1 https://github.com/{GIT_REPO}.git")
         else:
