@@ -446,10 +446,11 @@ class Cloud189(object):
 
         self._upload_finished_flag = False  # 上传完成的标志
 
-        def _call_back(it, total_size):
-            for now_size, item in enumerate(it):
+        def _call_back(it, chunk_size, total_size):
+            for chunk_now, item in enumerate(it):
                 yield item
                 if callback is not None:
+                    now_size = chunk_now * chunk_size
                     if not self._upload_finished_flag:
                         callback(filepath, total_size, now_size)
                     if now_size == total_size:
@@ -458,13 +459,13 @@ class Cloud189(object):
             if callback is not None:  # 保证迭代完后，两者大小一样
                 callback(filepath, total_size, total_size)
 
+        total_size = os.path.getsize(filepath)  # Byte
+        chunk_size = get_chunk_size(total_size)
         with open(filepath, 'rb') as f:
-            total_size = os.path.getsize(filepath)  # Byte
-            _counts = (total_size // 4096)  # KB
-            chunks = get_chunks(f, 4096)
-            data = _call_back(chunks, _counts)
+            chunks = get_upload_chunks(f, chunk_size)
+            post_data = _call_back(chunks, chunk_size, total_size)
 
-            resp = requests.put(url, data=data, headers=headers)
+            resp = requests.put(url, data=post_data, headers=headers)
             if resp.text != "":
                 node = ElementTree.XML(resp.text)
                 if node.text == "error":
@@ -705,8 +706,7 @@ class Cloud189(object):
             now_size = 0
         logger.debug(f'Download file info: {file_path=}, {now_size=}, {total_size=}')
 
-        scale = get_down_chunk_size_scale(total_size)
-        chunk_size = 1024 * 1024 * scale  # scale * 1 MB
+        chunk_size = get_chunk_size(total_size)
         headers = {**self._headers, 'Range': 'bytes=%d-' % now_size}
         resp = self._get(durl, stream=True, headers=headers)
 

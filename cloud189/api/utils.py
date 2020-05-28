@@ -140,18 +140,19 @@ def get_relative_folder(full_path, work_path, is_file=True):
     return relative_path.replace(file_name, '').strip('/').strip('\\')
 
 
-def get_chunks(file, chunk_size=1):
+def get_upload_chunks(file, chunk_size=8096):
+    """文件上传 块生成器"""
     while True:
         data = file.read(chunk_size)
         if not data: break
         yield data
 
 
-def get_down_chunk_size_scale(total_size: int) -> int:
-    """获取文件下载 块系数"""
+def get_chunk_size(total_size: int) -> int:
+    """根据文件大小返回 块大小"""
     if total_size >= 1024 * 1024 * 1024:  # 1 GB
-        return 10
+        return 1024 * 1024 * 10  # 10 MB
     elif total_size >= 1024 * 1024 * 100:  # 100 MB
-        return 4
+        return 1024 * 1024 * 4  # 4 MB
     else:
-        return 1
+        return 1024 * 1024 * 1  # 1 MB
