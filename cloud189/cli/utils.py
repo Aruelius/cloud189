@@ -182,7 +182,7 @@ def print_logo():
 
 
 def print_help():
-    clear_screen()
+    # clear_screen()
     help_text = f""" cloud189-cli | 天翼云盘客户端 for {sys.platform} | v{version}
     • 支持文件秒传，文件夹保持相对路径上传
     • 获取文件分享链接，批量上传下载，断点续传等功能
@@ -194,16 +194,22 @@ def print_help():
     refresh     强制刷新文件列表
     login       使用账号密码登录网盘
     clogin      使用 Cookie 登录网盘
-    logout*     注销当前账号
-    jobs        查看后台任务列表   
+    *logout     注销当前账号
+    jobs        查看后台任务列表
     ls          列出文件(夹)，仅文件名
     ll          列出文件(夹)，详细
     cd          切换工作目录
+    cdrec       进入回收站目录
+        rm      彻底删除文件
+        rec     恢复文件
+        clean   清空回收站
+        cd ..   退出回收站
     rm          删除网盘文件(夹)
     rename      重命名文件(夹)
-    *mv         移动文件(夹)
+    mv          移动文件(夹)
     mkdir       创建新文件夹
     share       显示文件(夹)分享信息
+    shared      显示已经分享的文件(夹)信息
     clear       清空屏幕
     upload      上传文件(夹)
     down        下载文件 # TODO: 下载文件夹、url
