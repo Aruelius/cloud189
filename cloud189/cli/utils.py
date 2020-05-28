@@ -119,17 +119,23 @@ def handle_args(args: str) -> list:
             arg += args[i]
         elif args[i] not in (' ', '\\', '"', '\''):
             arg += args[i]
-        elif args[i] == '\\' and i < len(args) and args[i + 1] == ' ':
-            arg += ' '
+        elif args[i] == '\\' and i < len(args) and args[i + 1] in (' ', '"', '\''):
+            arg += args[i + 1]
             i += 1  # 额外前进一步
         elif args[i] == ' ':
             if arg:
                 result.append(arg)
                 arg = ''  # 新的参数
         elif args[i] == '"':
-            flag_1 = not flag_1
+            if flag_2:  # ' some"s thing ' "other params"
+                arg += args[i]
+            else:
+                flag_1 = not flag_1
         elif args[i] == '\'':
-            flag_2 = not flag_2
+            if flag_1:  # " some's thing " 'other params'
+                arg += args[i]
+            else:
+                flag_2 = not flag_2
         i += 1
     if arg:
         result.append(arg)
