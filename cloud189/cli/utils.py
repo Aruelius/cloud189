@@ -80,7 +80,12 @@ def captcha_handler(img_data):
     if m_platform == 'Darwin':
         os.system(f'open {img_path}')
     elif m_platform == 'Linux':
-        os.system(f'xdg-open {img_path}')
+        from fabulous import image as fabimg
+        """检测是否运行在没有显示屏的console上"""
+        if os.environ.get('DISPLAY') == None :
+            print(fabimg.Image(f'{img_path}'))
+        else:
+            os.system(f'xdg-open {img_path}')
     else:
         os.startfile(img_path)  # windows
     ans = input('\n请输入验证码:')
