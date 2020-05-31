@@ -976,3 +976,41 @@ class Cloud189(object):
             return self.get_share_file_info(share_id, pwd)
         else:
             return self.get_share_folder_info(share_id, verify_code, pwd)
+
+    def user_sign(self):
+        """签到 + 抽奖"""
+        sign_url = API + '//mkt/userSign.action'
+        headers = {
+            'SessionKey': self._sessionKey
+        }
+        resp = requests.get(sign_url, headers=headers)
+        if not resp:
+            logger.error("Sign: 网络错误！")
+        if resp.status_code != requests.codes.ok:
+            print(f"签到失败 {resp=}, {headers=}")
+        else:
+            print("签到成功！\n    每天签到可领取更多福利哟，记得常来！")
+
+        url = 'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action'
+        params = {
+            'taskId': 'TASK_SIGNIN',
+            'activityId': 'ACT_SIGNIN'
+        }
+        resp = self._get(url, params=params)
+        if not resp:
+            logger.error("Sign: 网络错误！")
+        resp = resp.json()
+        if 'errorCode' in resp:
+            print(f"今日抽奖(1)次数已用完： {resp['errorCode']}")
+        else:
+            print(resp['prizeName'])
+
+        params.update({'taskId': 'TASK_SIGNIN_PHOTOS'})
+        resp = self._get(url, params=params)
+        if not resp:
+            logger.error("Sign: 网络错误！")
+        resp = resp.json()
+        if 'errorCode' in resp:
+            print(f"今日抽奖(2)次数已用完： {resp['errorCode']}")
+        else:
+            print(resp['prizeName'])

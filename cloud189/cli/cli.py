@@ -439,6 +439,10 @@ class Commander:
             print("https:{0:<30} 提取码: {1:>4} [转存/下载/浏览: {2}/{3}/{4}] 文件名: {5}".format(
                 item.url, item.pwd, item.copyC, item.downC, item.prevC, f_name))
 
+    def sign(self):
+        """签到 + 抽奖"""
+        self._disk.user_sign()
+
     def setpath(self):
         """设置下载路径"""
         print(f"当前下载路径 : {config.save_path}")
@@ -463,7 +467,7 @@ class Commander:
 
     def run_one(self, cmd, args):
         """运行单任务入口"""
-        no_arg_cmd = ['help', 'logout', 'update']
+        no_arg_cmd = ['help', 'logout', 'update', 'sign']
         cmd_with_arg = ['ls', 'll', 'down', 'mkdir',
                         'mv', 'rename', 'rm', 'share', 'upload']
 
@@ -481,7 +485,7 @@ class Commander:
     def run(self):
         """处理交互模式用户命令"""
         no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout',
-                      'refresh', 'rmode', 'setpath', 'update', 'setdelay']
+                      'refresh', 'rmode', 'setpath', 'update', 'sign']
         cmd_with_arg = ['ls', 'll', 'cd', 'down', 'jobs', 'shared',
                         'mkdir', 'mv', 'rename', 'rm', 'share', 'upload']
 
