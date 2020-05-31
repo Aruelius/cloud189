@@ -543,13 +543,6 @@ class Cloud189(object):
 
         # 文件已经存在，则认为已经上传了
         filename = os.path.basename(file_path)
-        file_list, _ = self.get_file_list(folder_id)
-        _item = file_list.find_by_name(filename)
-        if _item:
-            logger.debug(f"Upload by web: [{file_path}] 远端文件已经存在，已经跳过上传！")
-            if callback is not None:
-                callback(file_path, 1, 1, 'skip')
-            return UpCode(Cloud189.SUCCESS, _item.id)
 
         headers = {'Referer': self._host_url}
         url = self._host_url + "/v2/getUserUploadUrl.action"
@@ -615,6 +608,8 @@ class Cloud189(object):
                 callback(file_path, 1, 1, 'error')
             return UpCode(Cloud189.FAILED)  # 上传失败
 
+        if callback is not None:
+            callback(file_path, 1, 1)  # 更新上传状态
         return UpCode(Cloud189.SUCCESS, result['id'])  # 返回 id
 
     def upload_file(self, file_path, folder_id=-11, callback=None):
