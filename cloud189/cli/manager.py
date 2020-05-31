@@ -46,10 +46,10 @@ class TaskManager(object):
         task.start()
 
     @staticmethod
-    def _size_to_msg(now_size, total_size, count, pid, task) -> (str, bool):
+    def _size_to_msg(now_size, total_size, msg, pid, task) -> (str, bool):
         percent = now_size / total_size * 100
         has_error = len(task.get_err_msg()) != 0
-        quick_up = False  # 秒传退出外层循环
+        finish = False  # 秒传退出外层循环
         if task.is_alive():  # 任务执行中
             status = '\033[1;32mRunning \033[0m'
         elif not task.is_alive() and has_error:  # 任务执行完成, 但是有错误信息
@@ -58,16 +58,25 @@ class TaskManager(object):
             percent = 100  # 可能更新不及时
             status = '\033[1;34mFinished\033[0m'
         if task.get_task_type() == TaskType.DOWNLOAD:
-            d_arg, f_name, _ = task.get_cmd_info()
+            d_arg, f_name = task.get_cmd_info()
             d_arg = f_name if type(d_arg) == int else d_arg  # 显示 id 对应的文件名
-            msg = f"[{pid}] Status: {status} | Process: {percent:5.1f}% | Download: {d_arg}"
+            result = f"[{pid}] Status: {status} | Process: {percent:5.1f}% | Download: {d_arg}"
         else:
-            up_path, folder_name, quick_up = task.get_cmd_info()
-            if quick_up:
-                msg = f"[{pid}] Status: {status} | Process: \033[1;34m秒传！\033[0m | Upload: {up_path}{' '+count if count else ''} -> {folder_name}"
+            up_path, folder_name = task.get_cmd_info()
+            count = task.get_count()
+            if msg == 'quick_up':
+                finish = True
+                proc = "  \033[1;34m秒传!\033[0m "
+            elif msg == 'check':
+                proc = "\033[1;34m秒传检查\033[0m"
+            elif msg == 'error':
+                finish = True
+                proc = "\033[1;31m秒传失败\033[0m"
             else:
-                msg = f"[{pid}] Status: {status} | Process: {percent:5.1f}% | Upload: {up_path}{' '+count if count else ''} -> {folder_name}"
-        return msg, quick_up
+                proc = f"{percent:7.1f}%"
+            result = f"[{pid}] Status: {status} | Process:{proc} | Upload: {up_path}{count} -> {folder_name}"
+
+        return result, finish
 
     @staticmethod
     def _show_task(pid, task, follow=False):
@@ -86,30 +95,30 @@ class TaskManager(object):
                 time.sleep(1)
         if follow: threading.Thread(target=stop_show_task).start()
         global output_list
-        now_size, total_size, count = task.get_process()
-        # TODO： 出现 now_size > total_size, 断点续传出了问题
-        msg, quick_up = TaskManager._size_to_msg(now_size, total_size, count, pid, task)
+        now_size, total_size, msg = task.get_process()
         while now_size < total_size:
             if not TaskManager.running:
                 break
-            msg, quick_up = TaskManager._size_to_msg(now_size, total_size, count, pid, task)
+            result, finished = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
             if follow:
-                output_list[pid] = msg
+                output_list[pid] = result
                 time.sleep(1)
-                now_size, total_size, count = task.get_process()
+                now_size, total_size, msg = task.get_process()
             else:
                 break
-            if quick_up:  # 文件秒传没有大小
+            if finished:  # 文件秒传没有大小
                 break
-        if now_size == total_size:
-            msg, _ = TaskManager._size_to_msg(now_size, total_size, count, pid, task)
+        if now_size >= total_size:
+            result, _ = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
             if follow and TaskManager.running:
-                output_list[pid] = msg
+                output_list[pid] = result
         if follow and TaskManager.running:
             output_list.append(f"[{pid}] finished")
             TaskManager.running = False
-        elif not TaskManager.running: pass
-        else: print(msg)
+        elif not TaskManager.running:
+            pass
+        else:
+            print(result)
 
     def _show_task_bar(self, pid=None, follow=False):
         """多行更新状态栏"""

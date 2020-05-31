@@ -502,18 +502,26 @@ class Cloud189(object):
         if not os.path.isfile(file_path):
             logger.error(f"Upload by client: [{file_path}] 不是文件")
             return UpCode(Cloud189.PATH_ERROR)
+        if callback is not None:
+            callback(file_path, 1, 0, 'check')
         code, infos = self._create_upload_file(file_path, folder_id)
         if code == Cloud189.SUCCESS:
             upload_file_id, file_upload_url, file_commit_url, file_data_exists = infos
             if file_data_exists == 1:  # 数据存在，进入秒传流程
-                logger.debug(f"Upload by client: [{file_path}] 进入秒传流程")
+                logger.debug(f"Upload by client: [{file_path}] 进入秒传流程...")
                 fid = self._upload_client_commit(
                     file_commit_url, upload_file_id)
-                if not fid:
+                if fid:
+                    quick_up = True
+                    if callback is not None:  # 用于文件夹上传中的 秒传过程
+                        callback(file_path, 100, 100, 'quick_up')
+                else:
+                    if callback is not None:
+                        callback(file_path, 1, 0, 'error')
                     logger.debug(f"Upload by client: [{file_path}] 秒传失败！")
                     code = Cloud189.FAILED
-                quick_up = True
             else:  # 上传文件数据
+                logger.debug(f"Upload by client: [{file_path}] 进入正常上传流程...")
                 code = self._upload_file_data(
                     file_upload_url, upload_file_id, file_path, callback)
                 if code != Cloud189.SUCCESS:
@@ -522,6 +530,7 @@ class Cloud189(object):
                 fid = self._upload_client_commit(
                     file_commit_url, upload_file_id)
                 quick_up = False
+            logging.debug(f"Upload by client: results {code=}, {fid=}, {quick_up=}")
             return UpCode(code, fid, quick_up)
         else:
             return UpCode(code)
@@ -613,7 +622,7 @@ class Cloud189(object):
             return UpCode(Cloud189.PATH_ERROR)
 
         dir_dict = {}
-        logger.debug(f'[{folder_path}]是文件夹，开始解析目录结构')
+        logger.debug(f'Upload dir: 开始解析 {folder_path=} 结构')
         upload_files = []
         folder_name = get_file_name(folder_path)
         result = self.mkdir(parrent_fid, folder_name)
@@ -625,27 +634,27 @@ class Cloud189(object):
             for _file in files:
                 f_path = home + os.sep + _file
                 f_rfolder = get_relative_folder(f_path, folder_path)
-                logger.debug(f"{f_rfolder=}")
+                logger.debug(f"Upload dir: {f_rfolder=}")
                 if f_rfolder not in dir_dict:
                     dir_dict[f_rfolder] = ''
                 upload_files.append((f_path, dir_dict[f_rfolder]))
             for _dir in dirs:
                 p_rfolder = get_relative_folder(
                     home, folder_path, is_file=False)
-                logger.debug(f"{p_rfolder=}, {home=}, {folder_path=}")
+                logger.debug(f"Upload dir: {p_rfolder=}, {home=}, {folder_path=}")
                 dir_rname = p_rfolder + os.sep + _dir  # 文件夹相对路径
 
                 result = self.mkdir(dir_dict[p_rfolder], _dir)
                 if result.code != Cloud189.SUCCESS:
                     logger.error(
-                        f"上传文件夹中创建文件夹{dir_rname=} 失败！{folder_name=}, {dir_dict[p_rfolder]=}")
+                        f"Upload dir: 上传文件夹中创建文件夹{dir_rname=} 失败！{folder_name=}, {dir_dict[p_rfolder]=}")
                     return Cloud189.FAILED
                 logger.debug(
-                    f"成功创建文件夹{folder_name=}, {dir_dict[p_rfolder]=}, {dir_rname=}, {result.id}")
+                    f"Upload dir: 成功创建文件夹{folder_name=}, {dir_dict[p_rfolder]=}, {dir_rname=}, {result.id}")
                 dir_dict[dir_rname] = result.id
         results = []
         for upload_file in upload_files:
-            logger.debug(f"文件[{upload_file[0]}]进入上传流程")
+            logger.debug(f"Upload dir: 文件[{upload_file[0]}]进入上传作业..")
             res = self.upload_file(upload_file[0], upload_file[1], callback)
             results.append(UpCode(res.code, res.id, res.quick_up, upload_file))
         return results
@@ -699,7 +708,7 @@ class Cloud189(object):
             now_size = os.path.getsize(file_path)  # 本地已经下载的文件大小
             if now_size >= total_size:  # 已经下载完成
                 if callback is not None:
-                    callback(infos.name, total_size, now_size)
+                    callback(infos.name, total_size, now_size, 'exist')
                 logger.debug(f"Down by id: 本地文件已经存在该文件 {fid=}")
                 return Cloud189.SUCCESS
         else:

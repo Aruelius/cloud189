@@ -57,9 +57,13 @@ class Downloader(Thread):
         """获取下载进度"""
         return self._now_size, self._total_size, ''
 
+    def get_count(self) -> str:
+        """文件夹当前第几个文件"""
+        return ''
+
     def get_cmd_info(self):
         """获取命令行的信息"""
-        return self._down_args, self._f_path, ''
+        return self._down_args, self._f_path
 
     def get_err_msg(self) -> list:
         """获取后台下载时保存的错误信息"""
@@ -153,7 +157,7 @@ class Uploader(Thread):
         self._up_type = None
         self._folder_id = -11
         self._folder_name = ''
-        self._quick_up = False
+        self._msg = ''
         self._now_size = 0
         self._total_size = 1
         self._total_files = 0
@@ -175,12 +179,16 @@ class Uploader(Thread):
         return self._task_type
 
     def get_process(self) -> (int, int, str):
+        return self._now_size, self._total_size, self._msg
+
+    def get_count(self) -> str:
+        """文件夹当前第几个文件"""
         current_file = len(self._all_file_names)
-        count = f"({current_file}/{self._total_files})" if self._total_files >= 1 else ''
-        return self._now_size, self._total_size, count
+        count = f" ({current_file}/{self._total_files})" if self._total_files >= 1 else ''
+        return count
 
     def get_cmd_info(self):
-        return self._up_path, self._folder_name, self._quick_up
+        return self._up_path, self._folder_name
 
     def get_err_msg(self) -> list:
         return self._err_msg
@@ -195,11 +203,12 @@ class Uploader(Thread):
         self._folder_id = folder_id
         self._folder_name = folder_name
 
-    def _show_progress(self, file_name, total_size, now_size):
+    def _show_progress(self, file_name, total_size, now_size, msg=''):
         if file_name not in self._all_file_names:
             self._all_file_names.append(file_name)
         self._total_size = total_size
         self._now_size = now_size
+        self._msg = msg
 
     def _show_upload_failed(self, code, filename):
         """文件下载失败时的回调函数"""
@@ -225,8 +234,6 @@ class Uploader(Thread):
             info = self._disk.upload_file(self._up_path, self._folder_id, callback=self._show_progress)
             if info.code != Cloud189.SUCCESS:
                 self._error_msg(f"文件上传失info败: {why_error(info.code)} -> {self._up_path}")
-            else:
-                self._quick_up = info.quick_up
 
         elif self._up_type == UploadType.FOLDER:
             self._set_dir_files_number(self._up_path)
