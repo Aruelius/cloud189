@@ -323,13 +323,20 @@ class Commander:
                 follow = True
                 args.remove(arg)
         # TODO: 通过分享链接下载
-        for item in args:
-            if file := self._file_list.find_by_name(item):
+        i = 0
+        while i < len(args):
+            item = args[i]
+            if item.startswith("http"):
+                pwd = ''
+                if i < len(args) - 1 and (not args[i + 1].startswith("http")):
+                    pwd = args[i + 1]
+                    i += 1  # 额外加一
+                self._disk.get_file_info_by_url(item, pwd)
+            elif file := self._file_list.find_by_name(item):
                 downloader = Downloader(self._disk)
                 if file.isFolder:
                     # TODO: 下载文件夹
                     print("暂不支持下载文件夹！")
-                    continue
                 else:  # 下载文件
                     path = '/'.join(self._path_list.all_name) + \
                         '/' + item  # 文件在网盘的绝对路径
@@ -338,7 +345,7 @@ class Commander:
                     self._task_mgr.add_task(downloader)  # 提交下载任务
             else:
                 error(f'文件(夹)不存在: {item}')
-                continue
+            i += 1
         if follow and task_flag:
             self.jobs(['-f', ])
         elif task_flag:

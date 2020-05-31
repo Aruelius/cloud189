@@ -891,9 +891,60 @@ class Cloud189(object):
 
         return results
 
-    def get_info_by_share_id(self, share_id, pwd=''):
-        """获取 share id 中的文件信息"""
-        pass
+    def get_share_folder_info(self, share_id, verify_code, pwd='undefined'):
+        """获取分享的文件夹信息"""
+        result = []
+        page = 1
+        info_url = self._host_url + '/v2/listShareDir.action'
+        while True:
+            params = {
+                'shareId': share_id,
+                'verifyCode': verify_code,
+                'accessCode': pwd or 'undefined',
+                'orderBy': 1,
+                'order': 'ASC',
+                'pageNum': page,
+                'pageSize': 60
+            }
+            resp = requests.get(info_url, params=params, headers=self._headers)
+            if not resp:
+                return None
+            resp = resp.json()
+            if 'errorVO' in resp:
+                print("是文件夹，并且需要密码或者密码错误！")
+                logger.debug("需要 密码！")
+                return None
+            for item in resp['data']:
+                durl = 'https:' + item['downloadUrl'] if 'downloadUrl' in item else ''
+                print('#', item['fileId'], '文件名', item['fileName'], item['fileSize'], durl)
+            if resp['recordCount'] <= resp['pageSize'] * resp['pageNum']:
+                break
+
+            page += 1
+        print(f"共 {resp['recordCount']} 条记录")
+        return result
+
+    def get_share_file_info(self, share_id, pwd=''):
+        """获取分享的文件信息"""
+        verify_url = self._host_url + "/shareFileVerifyPass.action"
+        params = {
+            'fileVO.id': share_id,
+            'accessCode': pwd
+        }
+        resp = requests.get(verify_url, params=params)
+        if not resp:
+            return None
+        resp = resp.json()
+        if not resp:
+            print("是文件，并且需要密码或者密码错误！")
+            return None
+        f_id = resp['fileId']
+        f_name = resp['fileName']
+        f_size = resp['fileSize']
+        f_type = resp['fileType']
+        durl = resp['longDownloadUrl']
+
+        print(f_id, f_name, f_size, f_type, durl)
 
     def get_file_info_by_url(self, share_url, pwd=''):
         """通过分享链接获取信息"""
@@ -907,26 +958,21 @@ class Cloud189(object):
         if '您访问的页面地址有误' in first_page:
             logger.debug(f"分享链接已经取消 {share_url}")
             return None
-        share_id = re.search(r"_shareId = '(\w+?)';", first_page).group(1)
-        verify_code = re.search(r"_verifyCode = '(\w+?)';", first_page).group(1)
+        if 'window.fileName' in first_page:  # 文件
+            share_id = re.search(r'class="shareId" value="(\w+?)"', first_page).group(1)
+            # 没有密码，则直接暴露 durl
+            durl = re.search(r'class="downloadUrl" value="(\w+?)"', first_page)
+            if durl:
+                durl = durl.group(1)
+                print('直链：', durl)
+                return None
+            is_file = True
+        else:  # 文件夹
+            share_id = re.search(r"_shareId = '(\w+?)';", first_page).group(1)
+            verify_code = re.search(r"_verifyCode = '(\w+?)';", first_page).group(1)
+            is_file = False
 
-        page = 1
-
-        info_url = self._host_url + '/v2/listShareDir.action'
-        params = {
-            'shareId': share_id,
-            'verifyCode': verify_code,
-            'orderBy': 1,
-            'order': 'ASC',
-            'pageNum': page,
-            'pageSize': 60
-        }
-        result = requests.get(info_url, params=params, headers=self._headers)
-
-        if not result:
-            return None
-        result = result.json()
-        if 'errorVO' in result:
-            logger.debug("需要 密码！")
-            return None
-        # TODO:
+        if is_file:
+            return self.get_share_file_info(share_id, pwd)
+        else:
+            return self.get_share_folder_info(share_id, verify_code, pwd)
