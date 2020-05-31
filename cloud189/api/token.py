@@ -5,7 +5,7 @@
 import re
 import requests
 
-from cloud189.api.utils import rsa_encode, calculate_md5_sign, API, get_time, UA
+from cloud189.api.utils import rsa_encode, calculate_md5_sign, API, get_time, UA, logger
 from cloud189.api import Cloud189
 
 
@@ -77,8 +77,12 @@ def get_token(username, password):
     resp = requests.post(url, data=data, headers=headers, timeout=10)
     if not resp:
         return Cloud189.NETWORK_ERROR, None
-    redirect_url = resp.json()['toUrl']
-
+    resp = resp.json()
+    if 'toUrl' in resp:
+        redirect_url = resp['toUrl']
+    else:
+        redirect_url = ''
+    logger.debug(f"Token: {resp=}")
     url = API + '/getSessionForPC.action'
     headers = {
         "User-Agent": UA,

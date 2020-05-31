@@ -547,6 +547,8 @@ class Cloud189(object):
         _item = file_list.find_by_name(filename)
         if _item:
             logger.debug(f"Upload by web: [{file_path}] 远端文件已经存在，已经跳过上传！")
+            if callback is not None:
+                callback(file_path, 1, 1, 'skip')
             return UpCode(Cloud189.SUCCESS, _item.id)
 
         headers = {'Referer': self._host_url}
@@ -554,6 +556,8 @@ class Cloud189(object):
         resp = self._get(url, headers=headers)
         if not resp:
             logger.error(f"Upload by web: [{file_path}] 网络错误(1)！")
+            if callback is not None:
+                callback(file_path, 1, 1, 'error')
             return UpCode(Cloud189.NETWORK_ERROR)
         resp = resp.json()
         if 'uploadUrl' in resp:
@@ -569,6 +573,8 @@ class Cloud189(object):
         resp = self._get(url, headers=headers)
         if not resp:
             logger.error(f"Upload by web: [{file_path}] 网络错误(2)！")
+            if callback is not None:
+                callback(file_path, 1, 1, 'error')
             return UpCode(Cloud189.NETWORK_ERROR)
         sessionKey = re.findall(r"sessionKey = '(.+?)'", resp.text)[0]
 
@@ -598,11 +604,15 @@ class Cloud189(object):
                             headers=headers, timeout=None)
         if not result:  # 网络异常
             logger.error(f"Upload by web: [{file_path}] 网络错误(3)！")
+            if callback is not None:
+                callback(file_path, 1, 1, 'error')
             return UpCode(Cloud189.NETWORK_ERROR)
         else:
             result = result.json()
         if 'id' not in result:
             logger.error(f"Upload by web: [{file_path}] failed, {result=}")
+            if callback is not None:
+                callback(file_path, 1, 1, 'error')
             return UpCode(Cloud189.FAILED)  # 上传失败
 
         return UpCode(Cloud189.SUCCESS, result['id'])  # 返回 id

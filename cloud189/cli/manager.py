@@ -72,6 +72,9 @@ class TaskManager(object):
             elif msg == 'error':
                 finish = True
                 proc = "\033[1;31m秒传失败\033[0m"
+            elif msg == 'skip':
+                finish = True
+                proc = "\033[1;31m远端存在\033[0m"
             else:
                 proc = f"{percent:7.1f}%"
             result = f"[{pid}] Status: {status} | Process:{proc} | Upload: {up_path}{count} -> {folder_name}"
