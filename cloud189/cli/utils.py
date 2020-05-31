@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 from platform import system as platform
 
 import readline
@@ -10,6 +11,8 @@ from cloud189.cli import version
 
 
 GIT_REPO = "Aruelius/cloud189"
+logging.getLogger("requests").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 def error(msg):
@@ -80,9 +83,10 @@ def captcha_handler(img_data):
     if m_platform == 'Darwin':
         os.system(f'open {img_path}')
     elif m_platform == 'Linux':
-        from fabulous import image as fabimg
         """检测是否运行在没有显示屏的console上"""
-        if os.environ.get('DISPLAY') == None :
+        if os.environ.get('DISPLAY') is None:
+            from fabulous import image as fabimg
+
             print(fabimg.Image(f'{img_path}'))
         else:
             os.system(f'xdg-open {img_path}')
@@ -240,7 +244,7 @@ def check_update():
         resp = requests.get(api, timeout=3).json()
         tag_name, msg = resp['tag_name'], resp['body']
     except (requests.RequestException, AttributeError, KeyError) as err:
-        error(f"检查更新时发生异常{err=}")
+        error(f"检查更新时发生异常\n{err=}")
         input()
         return None
     if tag_name:

@@ -21,6 +21,9 @@ logging.basicConfig(level=logging.DEBUG,
                     format=fmt_str,
                     datefmt="%Y-%m-%d %H:%M:%S")
 
+logging.getLogger("requests").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+
 API = 'https://api.cloud.189.cn'
 UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) ????/1.0.0 ' \
      'Chrome/69.0.3497.128 Electron/4.2.12 Safari/537.36 '

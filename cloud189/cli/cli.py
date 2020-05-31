@@ -423,7 +423,7 @@ class Commander:
         stype = 1  # 默认查看 发出的分享
         if args and args[0] == '2':
             stype = 2  # 收到的分享
-        all_file = self._disk.list_share_url(stype)
+        all_file = self._disk.list_shared_url(stype)
         if not all_file:
             info("失败或者没有数据！")
             return None
