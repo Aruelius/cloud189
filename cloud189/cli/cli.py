@@ -356,6 +356,7 @@ class Commander:
         follow = False
         for arg in args:
             if arg == '-f':
+                print()
                 follow = True
                 args.remove(arg)
         if not args:
