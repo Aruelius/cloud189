@@ -35,6 +35,7 @@ class Downloader(Thread):
         self._f_path = None
         self._now_size = 0
         self._total_size = 1
+        self._msg = ''  # 备用
         self._err_msg = []
 
     def _error_msg(self, msg):
@@ -89,10 +90,11 @@ class Downloader(Thread):
         self._f_path = f_path  # 文件(夹)名在网盘的路径
         self._down_type = DownType.FILE_ID if is_file else DownType.FOLDER_ID
 
-    def _show_progress(self, file_name, total_size, now_size):
+    def _show_progress(self, file_name, total_size, now_size, msg=''):
         """更新下载进度的回调函数"""
         self._total_size = total_size
         self._now_size = now_size
+        self._msg = msg
 
     def _show_down_failed(self, code, file):
         """文件下载失败时的回调函数"""
