@@ -303,7 +303,6 @@ class Commander:
                     return True
 
             set_completer(choice_list, condition=_condition)
-            print(choice_list)
             choice = input('请输入路径(TAB键补全) : ')
             if not choice or choice not in choice_list:
                 error(f"目标路径不存在: {choice}")
