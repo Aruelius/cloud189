@@ -82,7 +82,7 @@ def get_token(username, password):
         redirect_url = resp['toUrl']
     else:
         redirect_url = ''
-    logger.debug(f"Token: {resp=}")
+    logger.debug(f"Token: {resp['msg']=}")
     url = API + '/getSessionForPC.action'
     headers = {
         "User-Agent": UA,

@@ -116,7 +116,7 @@ class Cloud189(object):
                     pic_url, params={"token": captchaToken}).content
                 captcha = self._captcha_handler(img_data)  # 用户手动识别验证码
             else:
-                logger.error("没有验证码处理函数！")
+                logger.error("No verification code processing function!")
         return captcha
 
     def login_by_cookie(self, config):
@@ -181,7 +181,7 @@ class Cloud189(object):
         while True:
             resp = self._get(url, params={'pageNum': page, 'pageSize': 60})
             if not resp:
-                logger.error("Rec file list: 网络错误！")
+                logger.error("Rec file list: network error!")
                 return None
             resp = resp.json()
             familyId = resp['familyId']
@@ -304,7 +304,7 @@ class Cloud189(object):
             }
         resp = self._get(url=url, params=params)
         if not resp:
-            logger.error(f"Share file: {fid=}网络错误！")
+            logger.error(f"Share file: {fid=}network error!")
             return ShareCode(Cloud189.FAILED)
         resp = resp.json()
         share_url = resp['shortShareUrl']
@@ -331,7 +331,7 @@ class Cloud189(object):
             }
             resp = self._get(url, params=params)
             if not resp:
-                logger.error(f"File list: {fid=}网络错误！")
+                logger.error(f"File list: {fid=}network error!")
                 return None
             resp = resp.json()
             data_, done = self._get_more_page(resp, r_path=True)
@@ -394,7 +394,7 @@ class Cloud189(object):
             resp = requests.post(url, headers=headers,
                                  data=post_data, timeout=10)
             if resp.json()['res_message'] == "UserDayFlowOverLimited":
-                logger.error(f"Upload by client [create]: {filepath=} 当前登录账号每日传输流量已用尽")
+                logger.error(f"Upload by client [create]: {filepath=}, the daily transmission of the current login account has been exhausted!")
                 code = Cloud189.FAILED
             elif resp.json().get('uploadFileId'):
                 upload_file_id = resp.json()['uploadFileId']
@@ -402,12 +402,12 @@ class Cloud189(object):
                 file_commit_url = resp.json()['fileCommitUrl']
                 file_data_exists = resp.json()['fileDataExists']
                 logger.debug(
-                    f"Upload by client [create]: 成功创建上传任务，节点 {file_upload_url.split('//')[1].split('.')[0]}")
+                    f"Upload by client [create]: successfully created upload task, node {file_upload_url.split('//')[1].split('.')[0]}")
                 code = Cloud189.SUCCESS
                 infos = (upload_file_id, file_upload_url,
                          file_commit_url, file_data_exists)
             else:
-                logger.error(f'Upload by client [create]: 未知回显{resp.text=},{resp.json()}, 请联系开发者！')
+                logger.error(f'Upload by client [create]: unknown response {resp.text=},{resp.json()}, please contact the developer!')
                 code = Cloud189.FAILED
         except Exception:
             code = Cloud189.FAILED
@@ -456,10 +456,10 @@ class Cloud189(object):
                 if node.text == "error":
                     if node.findtext('code') != 'UploadFileCompeletedError':
                         logger.error(
-                            f"Upload by client [data]: 上传数据发生错误{node.findtext('code')},{node.findtext('message')}")
+                            f"Upload by client [data]: an error occurred while uploading data {node.findtext('code')},{node.findtext('message')}")
                         return Cloud189.FAILED
             else:
-                logger.debug(f"Upload by client [data]: 上传 {filepath} 成功!")
+                logger.debug(f"Upload by client [data]: upload {filepath} success!")
                 return Cloud189.SUCCESS
 
     def _upload_client_commit(self, file_commit_url, upload_file_id):
@@ -489,18 +489,18 @@ class Cloud189(object):
             if node.text != 'error':
                 fid = node.findtext('id')
                 logger.debug(
-                    f"Upload by client [commit]: 于[{node.findtext('createDate')}]上传[{node.findtext('name')}]({node.findtext('id')})成功")
+                    f"Upload by client [commit]: at[{node.findtext('createDate')}] upload [{node.findtext('name')}]({node.findtext('id')}) success")
             else:
-                logger.error(f'Upload by client [commit]: 未知错误 {resp.text=}')
+                logger.error(f'Upload by client [commit]: unknown error {resp.text=}')
         except Exception:
-            logger.error('Upload by client [commit]: 发生错误！')
+            logger.error('Upload by client [commit]: an error occurred!')
             traceback.print_exc()
         return fid
 
     def upload_file_by_client(self, file_path, folder_id=-11, callback=None):
         '''使用客户端接口上传单文件，支持秒传功能'''
         if not os.path.isfile(file_path):
-            logger.error(f"Upload by client: [{file_path}] 不是文件")
+            logger.error(f"Upload by client: [{file_path}] is not a file")
             return UpCode(Cloud189.PATH_ERROR)
         if callback is not None:
             callback(file_path, 1, 0, 'check')
@@ -508,7 +508,7 @@ class Cloud189(object):
         if code == Cloud189.SUCCESS:
             upload_file_id, file_upload_url, file_commit_url, file_data_exists = infos
             if file_data_exists == 1:  # 数据存在，进入秒传流程
-                logger.debug(f"Upload by client: [{file_path}] 进入秒传流程...")
+                logger.debug(f"Upload by client: [{file_path}] enter the quick_up process...")
                 fid = self._upload_client_commit(
                     file_commit_url, upload_file_id)
                 if fid:
@@ -518,14 +518,14 @@ class Cloud189(object):
                 else:
                     if callback is not None:
                         callback(file_path, 1, 0, 'error')
-                    logger.debug(f"Upload by client: [{file_path}] 秒传失败！")
+                    logger.debug(f"Upload by client: [{file_path}] quick_up failed!")
                     code = Cloud189.FAILED
             else:  # 上传文件数据
-                logger.debug(f"Upload by client: [{file_path}] 进入正常上传流程...")
+                logger.debug(f"Upload by client: [{file_path}] enter the normal upload process...")
                 code = self._upload_file_data(
                     file_upload_url, upload_file_id, file_path, callback)
                 if code != Cloud189.SUCCESS:
-                    logger.debug(f"Upload by client: [{file_path}] 正常上传失败！")
+                    logger.debug(f"Upload by client: [{file_path}] normal upload failed!")
                     return UpCode(code)
                 fid = self._upload_client_commit(
                     file_commit_url, upload_file_id)
@@ -538,7 +538,7 @@ class Cloud189(object):
     def upload_file_by_web(self, file_path, folder_id=-11, callback=None):
         '''使用网页接口上传单文件，不支持秒传'''
         if not os.path.isfile(file_path):
-            logger.error(f"Upload by web: [{file_path}] 不是文件")
+            logger.error(f"Upload by web: [{file_path}] is not a file")
             return UpCode(Cloud189.PATH_ERROR)
 
         # 文件已经存在，则认为已经上传了
@@ -548,7 +548,7 @@ class Cloud189(object):
         url = self._host_url + "/v2/getUserUploadUrl.action"
         resp = self._get(url, headers=headers)
         if not resp:
-            logger.error(f"Upload by web: [{file_path}] 网络错误(1)！")
+            logger.error(f"Upload by web: [{file_path}] network error(1)!")
             if callback is not None:
                 callback(file_path, 1, 1, 'error')
             return UpCode(Cloud189.NETWORK_ERROR)
@@ -556,7 +556,7 @@ class Cloud189(object):
         if 'uploadUrl' in resp:
             upload_url = "https:" + resp['uploadUrl']
         else:
-            logger.error(f"Upload by web: [{file_path}] 获取上传节点失败！")
+            logger.error(f"Upload by web: [{file_path}] failed to obtain upload node!")
             upload_url = ''
 
         self._session.headers["Referer"] = self._host_url  # 放到 headers？
@@ -565,7 +565,7 @@ class Cloud189(object):
         url = self._host_url + "/main.action"
         resp = self._get(url, headers=headers)
         if not resp:
-            logger.error(f"Upload by web: [{file_path}] 网络错误(2)！")
+            logger.error(f"Upload by web: [{file_path}] network error(2)!")
             if callback is not None:
                 callback(file_path, 1, 1, 'error')
             return UpCode(Cloud189.NETWORK_ERROR)
@@ -596,7 +596,7 @@ class Cloud189(object):
         result = self._post(upload_url, data=monitor,
                             headers=headers, timeout=None)
         if not result:  # 网络异常
-            logger.error(f"Upload by web: [{file_path}] 网络错误(3)！")
+            logger.error(f"Upload by web: [{file_path}] network error(3)!")
             if callback is not None:
                 callback(file_path, 1, 1, 'error')
             return UpCode(Cloud189.NETWORK_ERROR)
@@ -614,20 +614,20 @@ class Cloud189(object):
 
     def upload_file(self, file_path, folder_id=-11, callback=None):
         if self._sessionKey and self._sessionSecret and self._accessToken:
-            logging.debug(f"使用客户端接口上传文件： {file_path=}, {folder_id=}")
+            logging.debug(f"Use the client interface to upload files: {file_path=}, {folder_id=}")
             return self.upload_file_by_client(file_path, folder_id, callback)
         else:
-            logging.debug(f"使用 web 接口上传文件： {file_path=}, {folder_id=}")
+            logging.debug(f"Use the web interface to upload files: {file_path=}, {folder_id=}")
             return self.upload_file_by_web(file_path, folder_id, callback)
 
     def upload_dir(self, folder_path, parrent_fid=-11, callback=None):
         '''上传文件夹'''
         if not os.path.isdir(folder_path):
-            logger.error(f"Upload dir: [{folder_path}] 不是文件夹")
+            logger.error(f"Upload dir: [{folder_path}] is not a file")
             return UpCode(Cloud189.PATH_ERROR)
 
         dir_dict = {}
-        logger.debug(f'Upload dir: 开始解析 {folder_path=} 结构')
+        logger.debug(f'Upload dir: start parsing {folder_path=} structure...')
         upload_files = []
         folder_name = get_file_name(folder_path)
         result = self.mkdir(parrent_fid, folder_name)
@@ -639,7 +639,7 @@ class Cloud189(object):
             for _file in files:
                 f_path = home + os.sep + _file
                 f_rfolder = get_relative_folder(f_path, folder_path)
-                logger.debug(f"Upload dir: {f_rfolder=}")
+                logger.debug(f"Upload dir: {f_rfolder=}, {f_path=}, {folder_path=}")
                 if f_rfolder not in dir_dict:
                     dir_dict[f_rfolder] = ''
                 upload_files.append((f_path, dir_dict[f_rfolder]))
@@ -652,14 +652,14 @@ class Cloud189(object):
                 result = self.mkdir(dir_dict[p_rfolder], _dir)
                 if result.code != Cloud189.SUCCESS:
                     logger.error(
-                        f"Upload dir: 上传文件夹中创建文件夹{dir_rname=} 失败！{folder_name=}, {dir_dict[p_rfolder]=}")
+                        f"Upload dir: create a folder in the upload sub folder{dir_rname=} failed! {folder_name=}, {dir_dict[p_rfolder]=}")
                     return Cloud189.FAILED
                 logger.debug(
-                    f"Upload dir: 成功创建文件夹{folder_name=}, {dir_dict[p_rfolder]=}, {dir_rname=}, {result.id}")
+                    f"Upload dir: folder successfully created {folder_name=}, {dir_dict[p_rfolder]=}, {dir_rname=}, {result.id}")
                 dir_dict[dir_rname] = result.id
         results = []
         for upload_file in upload_files:
-            logger.debug(f"Upload dir: 文件[{upload_file[0]}]进入上传作业..")
+            logger.debug(f"Upload dir: file [{upload_file[0]}] enter upload process...")
             res = self.upload_file(upload_file[0], upload_file[1], callback)
             results.append(UpCode(res.code, res.id, res.quick_up, upload_file))
         return results
@@ -704,7 +704,7 @@ class Cloud189(object):
         durl = 'https:' + infos.durl
         resp = self._get(durl, stream=True)
         if not resp:
-            logging.error("Down by id: 网络错误！")
+            logging.error("Down by id: network error!")
             return Cloud189.FAILED
         total_size = int(resp.headers['Content-Length'])
 
@@ -714,7 +714,7 @@ class Cloud189(object):
             if now_size >= total_size:  # 已经下载完成
                 if callback is not None:
                     callback(infos.name, total_size, now_size, 'exist')
-                logger.debug(f"Down by id: 本地文件已经存在该文件 {fid=}")
+                logger.debug(f"Down by id: the file already exists in the local {fid=}")
                 return Cloud189.SUCCESS
         else:
             now_size = 0
@@ -742,7 +742,7 @@ class Cloud189(object):
         '''删除文件(夹)'''
         code, infos = self.get_file_info_by_id(fid)
         if code != Cloud189.SUCCESS:
-            logging.error(f"Delete by id: 获取文件{fid=}详情失败！")
+            logging.error(f"Delete by id: get file's {fid=} details failed!")
             return code
 
         return self._batch_task(infos, 'DELETE')
@@ -755,7 +755,7 @@ class Cloud189(object):
         '''复制文件(夹)'''
         code, infos = self.get_file_info_by_id(fid)
         if code != Cloud189.SUCCESS:
-            logging.error(f"Copy by id: 获取文件{fid=}详情失败！")
+            logging.error(f"Copy by id: get file's {fid=} details failed!")
             return code
 
         return self._batch_task(infos, 'COPY')
@@ -786,14 +786,14 @@ class Cloud189(object):
         result = self._get(
             url, params={'parentId': str(parent_id), 'fileName': fname})
         if not result:
-            logging.error("Mkdir: 网络错误！")
+            logging.error("Mkdir: network error!")
             return MkCode(Cloud189.NETWORK_ERROR)
         result = result.json()
         if 'fileId' in result:
             fid = result['fileId']
             return MkCode(Cloud189.SUCCESS, fid)
         else:
-            logging.error(f"Mkdir: 未知错误{result=}")
+            logging.error(f"Mkdir: unknown error {result=}")
             return MkCode(Cloud189.FAILED)
 
     def rename(self, fid, fname):
@@ -801,12 +801,12 @@ class Cloud189(object):
         url = self._host_url + '/v2/renameFile.action'
         resp = self._get(url, params={'fileId': str(fid), 'fileName': fname})
         if not resp:
-            logging.error("Rename: 网络错误！")
+            logging.error("Rename: network error!")
             return Cloud189.NETWORK_ERROR
         resp = resp.json()
         if 'success' in resp:
             return Cloud189.SUCCESS
-        logger.error(f"Rename:  未知错误 {resp=}, {fid=}, {fname=}")
+        logger.error(f"Rename:  unknown error {resp=}, {fid=}, {fname=}")
         return Cloud189.FAILED
 
     def get_folder_nodes(self, fid=None, max_deep=5) -> TreeList:
@@ -855,7 +855,7 @@ class Cloud189(object):
             params = {"shareType": stype, "pageNum": page, "pageSize": 60}
             resp = self._get(get_url, params=params)
             if not resp:
-                logger.error("List shared: 网络错误！")
+                logger.error("List shared: network error!")
                 return None
             resp = resp.json()
             data_, done = self._get_more_page(resp)
@@ -912,7 +912,7 @@ class Cloud189(object):
             resp = resp.json()
             if 'errorVO' in resp:
                 print("是文件夹，并且需要密码或者密码错误！")
-                logger.debug("需要 密码！")
+                logger.debug("Access password is required!")
                 return None
             for item in resp['data']:
                 durl = 'https:' + item['downloadUrl'] if 'downloadUrl' in item else ''
@@ -951,12 +951,12 @@ class Cloud189(object):
 
         first_page = requests.get(share_url, headers=self._headers)
         if not first_page:
-            logger.error("File info: 网络错误!")
+            logger.error("File info: network error!")
             return None
         first_page = first_page.text
         # 抱歉，您访问的页面地址有误，或者该页面不存在
         if '您访问的页面地址有误' in first_page:
-            logger.debug(f"分享链接已经取消 {share_url}")
+            logger.debug(f"The sharing link has been cancelled {share_url}")
             return None
         if 'window.fileName' in first_page:  # 文件
             share_id = re.search(r'class="shareId" value="(\w+?)"', first_page).group(1)
@@ -985,7 +985,7 @@ class Cloud189(object):
         }
         resp = requests.get(sign_url, headers=headers)
         if not resp:
-            logger.error("Sign: 网络错误！")
+            logger.error("Sign: network error!")
         if resp.status_code != requests.codes.ok:
             print(f"签到失败 {resp=}, {headers=}")
         else:
@@ -998,7 +998,7 @@ class Cloud189(object):
         }
         resp = self._get(url, params=params)
         if not resp:
-            logger.error("Sign: 网络错误！")
+            logger.error("Sign: network error!")
         resp = resp.json()
         if 'errorCode' in resp:
             print(f"今日抽奖(1)次数已用完： {resp['errorCode']}")
@@ -1008,7 +1008,7 @@ class Cloud189(object):
         params.update({'taskId': 'TASK_SIGNIN_PHOTOS'})
         resp = self._get(url, params=params)
         if not resp:
-            logger.error("Sign: 网络错误！")
+            logger.error("Sign: network error!")
         resp = resp.json()
         if 'errorCode' in resp:
             print(f"今日抽奖(2)次数已用完： {resp['errorCode']}")
