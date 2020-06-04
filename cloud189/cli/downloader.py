@@ -58,9 +58,9 @@ class Downloader(Thread):
         """获取下载进度"""
         return self._now_size, self._total_size, ''
 
-    def get_count(self) -> str:
-        """文件夹当前第几个文件"""
-        return ''
+    def get_count(self) -> (int, int):
+        """文件夹当前第几个文件(备用)"""
+        return 1, 0
 
     def get_cmd_info(self):
         """获取命令行的信息"""
@@ -183,11 +183,10 @@ class Uploader(Thread):
     def get_process(self) -> (int, int, str):
         return self._now_size, self._total_size, self._msg
 
-    def get_count(self) -> str:
+    def get_count(self) -> (int, int):
         """文件夹当前第几个文件"""
-        current_file = len(self._all_file_names)
-        count = f" ({current_file}/{self._total_files})" if self._total_files >= 1 else ''
-        return count
+        done_files = len(self._all_file_names) if self._total_files >= 1 else 1
+        return done_files, self._total_files
 
     def get_cmd_info(self):
         return self._up_path, self._folder_name

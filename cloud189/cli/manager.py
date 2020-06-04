@@ -63,7 +63,8 @@ class TaskManager(object):
             result = f"[{pid}] Status: {status} | Process: {percent:5.1f}% | Download: {d_arg}"
         else:
             up_path, folder_name = task.get_cmd_info()
-            count = task.get_count()
+            done_files, total_files = task.get_count()
+            count = f" ({done_files}/{total_files})" if total_files > 0 else ""
             if msg == 'quick_up':
                 finish = True
                 proc = "  \033[1;34m秒传!\033[0m "
@@ -99,7 +100,8 @@ class TaskManager(object):
         if follow: threading.Thread(target=stop_show_task).start()
         global output_list
         now_size, total_size, msg = task.get_process()
-        while now_size < total_size:
+        done_files, total_files = task.get_count()
+        while now_size < total_size or done_files < total_files:
             if not TaskManager.running:
                 break
             result, finished = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
@@ -107,6 +109,7 @@ class TaskManager(object):
                 output_list[pid] = result
                 time.sleep(1)
                 now_size, total_size, msg = task.get_process()
+                done_files, total_files = task.get_count()
             else:
                 break
             if finished:  # 文件秒传没有大小
