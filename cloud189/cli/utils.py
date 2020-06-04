@@ -201,8 +201,9 @@ def print_help():
     update      检查更新
     *rmode      屏幕阅读器模式
     refresh     强制刷新文件列表
-    login       使用账号密码登录网盘
-    clogin      使用 Cookie 登录网盘
+    login       使用账号密码登录网盘/添加用户
+    clogin      使用 Cookie 登录网盘/添加用户
+    su          列出、切换账户
     *logout     注销当前账号
     jobs        查看后台任务列表
     ls          列出文件(夹)，仅文件名
@@ -221,8 +222,9 @@ def print_help():
     shared      显示已经分享的文件(夹)信息
     clear       清空屏幕
     upload      上传文件(夹)
-    down        下载文件 # TODO: 下载文件夹、url
+    down        下载文件、提取分享链接直链 # TODO: 下载文件夹
     setpath     设置文件下载路径
+    who/quota   查看当前账户信息
     bye/exit    退出本程序
 
     * 表示目前版本无法使用。
