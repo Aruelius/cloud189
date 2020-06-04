@@ -51,7 +51,6 @@ class Commander:
         if self._task_mgr.has_alive_task():
             info("有任务在后台运行, 退出请直接关闭窗口")
         else:
-            print(type(self._work_id), self._work_id)
             config.work_id = self._work_id
             exit_cmd(0)
 
@@ -80,7 +79,7 @@ class Commander:
         """刷新当前文件夹和路径信息"""
         dir_id = self._work_id if dir_id is None else dir_id
         self._file_list, self._path_list = self._disk.get_file_list(dir_id)
-        if not self._file_list or not self._path_list:
+        if not self._file_list and not self._path_list:
             error(f"文件 id 无效 {dir_id=}, {self._work_id=}")
             return None
         self._prompt = '/'.join(self._path_list.all_name) + ' > '
