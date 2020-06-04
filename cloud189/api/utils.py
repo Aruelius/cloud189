@@ -137,9 +137,12 @@ def get_file_name(file_path):
 def get_relative_folder(full_path, work_path, is_file=True):
     '''文件路径获取文件夹'''
     work_name = get_file_name(work_path)
-    work_hone = work_path.strip('/').strip('\\').replace(work_name, '')
+    # 有可能 work_name 在父文件夹中有出现，
+    # 因此 反转路径 以替换最后一个文件(夹)名，最后再倒回来 (〒︿〒)
+    work_hone = work_path[::-1].strip('/').strip('\\').replace(work_name[::-1], '', 1)[::-1]
     relative_path = full_path.strip('/').strip('\\').replace(work_hone, '')
     file_name = relative_path.rsplit('\\', 1)[-1].rsplit('/', 1)[-1] if is_file else ''
+    logger.debug(f"{work_name=},{work_hone=},{relative_path=},{file_name=}")
     return relative_path.replace(file_name, '').strip('/').strip('\\')
 
 
