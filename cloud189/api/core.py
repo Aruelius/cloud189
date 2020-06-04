@@ -332,8 +332,11 @@ class Cloud189(object):
             resp = self._get(url, params=params)
             if not resp:
                 logger.error(f"File list: {fid=}network error!")
-                return None
+                return file_list, path_list
             resp = resp.json()
+            if 'errorCode' in resp:
+                logger.error(f"Get file: {resp}")
+                return file_list, path_list
             data_, done = self._get_more_page(resp, r_path=True)
             data_path.append(data_)
             if done:
@@ -1014,3 +1017,23 @@ class Cloud189(object):
             print(f"今日抽奖(2)次数已用完： {resp['errorCode']}")
         else:
             print(resp['prizeName'])
+
+    def get_user_infos(self):
+        """获取登录用户信息"""
+        url = self._host_url + "/v2/getLoginedInfos.action"
+        resp = self._get(url)
+        if not resp:
+            logger.error("Get user info: network error!")
+            return None
+        resp = resp.json()
+        id_ = resp['userId']
+        account = resp['userAccount']
+        nickname = resp['nickname'] if 'nickname' in resp else ''
+        used = resp['usedSize']
+        quota = resp['quota']
+        vip = resp['superVip'] if 'superVip' in resp else ''
+        endTime = resp['superEndTime'] if 'superEndTime' in resp else ''
+        beginTime = resp['superBeginTime'] if 'superBeginTime' in resp else ''
+        domain = resp['domainName'] if 'domainName' in resp else ''
+        return UserInfo(id=id_, account=account, nickname=nickname, used=used, quota=quota,
+                        vip=vip, endTime=endTime, beginTime=beginTime, domain=domain)

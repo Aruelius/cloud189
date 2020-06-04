@@ -51,6 +51,8 @@ class Commander:
         if self._task_mgr.has_alive_task():
             info("有任务在后台运行, 退出请直接关闭窗口")
         else:
+            print(type(self._work_id), self._work_id)
+            config.work_id = self._work_id
             exit_cmd(0)
 
     def exit(self):
@@ -78,6 +80,9 @@ class Commander:
         """刷新当前文件夹和路径信息"""
         dir_id = self._work_id if dir_id is None else dir_id
         self._file_list, self._path_list = self._disk.get_file_list(dir_id)
+        if not self._file_list or not self._path_list:
+            error(f"文件 id 无效 {dir_id=}, {self._work_id=}")
+            return None
         self._prompt = '/'.join(self._path_list.all_name) + ' > '
         self._last_work_id = self._work_id
         self._work_name = self._path_list[-1].name
@@ -86,42 +91,60 @@ class Commander:
             self._parent_name = self._path_list[-2].name
             self._parent_id = self._path_list[-2].id
 
-    def login(self):
+    def login(self, args):
         """登录网盘"""
-        if not config.cookie or self._disk.login_by_cookie(config) != Cloud189.SUCCESS:
-            username = input('输入用户名:')
-            password = getpass('输入密码:')
-            code = self._disk.login(username, password)
-            if code == Cloud189.NETWORK_ERROR:
-                error("登录失败,网络连接异常")
-                return None
-            elif code == Cloud189.FAILED:
-                error('登录失败,用户名或密码错误 :(')
-                return None
-            # 登录成功保存用户 cookie
-            config.username = username
-            config.password = password
-            config.cookie = self._disk.get_cookie()
-            code, token = get_token(username, password)
-            if code == Cloud189.SUCCESS:
-                config.set_token(*token)
-                self._disk.set_session(*token)
-        self.refresh()
+        if args:
+            if '--auto' in args:
+                if config.cookie and self._disk.login_by_cookie(config) == Cloud189.SUCCESS:
+                    self.refresh(config.work_id)
+                    return None
+        username = input('输入用户名:')
+        password = getpass('输入密码:')
+        if not username or not password:
+            error('没有用户名或密码 :(')
+            return None
+        code = self._disk.login(username, password)
+        if code == Cloud189.NETWORK_ERROR:
+            error("登录失败,网络连接异常")
+            return None
+        elif code == Cloud189.FAILED:
+            error('登录失败,用户名或密码错误 :(')
+            return None
+        # 登录成功保存用户 cookie
+        config.username = username
+        config.password = password
+        config.cookie = self._disk.get_cookie()
+        code, token = get_token(username, password)
+        if code == Cloud189.SUCCESS:
+            config.set_token(*token)
+            self._disk.set_session(*token)
+        self._work_id = -11
+        self.refresh(-11)
 
     def clogin(self):
         """使用 cookie 登录"""
-        open_new_tab('https://cloud.189.cn')
-        info("请设置 Cookie 内容:")
+        if platform() == 'Linux' and not os.environ.get('DISPLAY'):
+            info("请使用浏览器打开: https://cloud.189.cn 获取 cookie")
+        else:
+            open_new_tab('https://cloud.189.cn')
+            info("请设置 Cookie 内容:")
         c_login_user = input("COOKIE_LOGIN_USER=")
         if not c_login_user:
             error("请输入正确的 Cookie 信息")
             return None
         cookie = {"COOKIE_LOGIN_USER": str(c_login_user)}
         if self._disk.login_by_cookie(cookie) == Cloud189.SUCCESS:
+            user = self._disk.get_user_infos()
+            if not user:
+                error("发生未知错误！")
+                return None
+            name = user.account
+            config.username = name.replace('@189.cn', '')
             config.cookie = cookie
+            self._work_id = config.work_id
             self.refresh()
         else:
-            error("登录失败,请检查 Cookie 是否正确")
+            error("登录失败, 请检查 Cookie 是否正确")
 
     def logout(self):
         """注销"""
@@ -136,6 +159,44 @@ class Commander:
         self._parent_name = ''
         self._work_name = ''
         config.cookie = None
+
+    def su(self, args):
+        """列出、切换用户"""
+        users = config.get_users_name()
+        def list_user():
+            for i in range(len(users)):
+                user = users[i]
+                user_info = config.get_user_info(user)
+                methord = "用户名+密码 登录" if user_info[2] else "Cookie 登录"
+                print(f"[{i}] 用户名: {user}, {methord}")
+        if args:
+            if args[0] == '-l':
+                list_user()
+                return None
+            elif args[0] in users:
+                select_user = args[0]
+            else:
+                error(f"用户名 {args[0]} 无效")
+                return None
+        else:
+            list_user()
+            select = input("请输入用户序号, [0、1 ... ]: ")
+            if select.isnumeric():
+                select = int(select)
+                if select > len(users):
+                    error(f"序号 {select} 无效!")
+                    return None
+                select_user = users[select]
+            else:
+                error(f"序号 {select} 无效!")
+                return None
+        config.work_id = self._work_id  # 保存旧的工作目录
+        config.change_user(select_user)
+        if self._disk.login_by_cookie(config) != Cloud189.SUCCESS:
+            error("切换用户失败!")
+        else:
+            info(f"成功切换至用户 {config.username}")
+            self.refresh(config.work_id)
 
     def ll(self, args):
         """列出文件(夹)，详细模式"""
@@ -443,6 +504,31 @@ class Commander:
         """签到 + 抽奖"""
         self._disk.user_sign()
 
+    def who(self):
+        """打印当前登录账户信息"""
+        user = self._disk.get_user_infos()
+        if not user:
+            error("发生未知错误！")
+            return None
+        quota = ", 总空间: {:.3f} GB".format(user.quota/1073741824)  # GB
+        used = ", 已使用: {:.3f} GB".format(user.used/1073741824)  # GB
+        nickname = f", 昵称: {user.nickname}"
+        print(f"账号: {user.account}, UID: {user.id}{nickname}{quota}{used}")
+        if user.vip == 100:
+            vip = "黄金会员"
+        elif user.vip == 1000:  # TODO: 未知代码, 可能需要修改
+            vip = "铂金会员"
+        else:
+            vip = "普通会员"
+        start_time = f", 开始时间: {user.beginTime}" if user.beginTime else ''
+        end_time = f", 到期时间: {user.endTime}" if user.endTime else ''
+        print(f"用户类别: {vip}{start_time}{end_time}")
+        if user.domain:
+            print(f"个人主页: https://cloud.189.cn/u/{user.domain}")
+
+    def quota(self):
+        self.who()
+
     def setpath(self):
         """设置下载路径"""
         print(f"当前下载路径 : {config.save_path}")
@@ -467,8 +553,8 @@ class Commander:
 
     def run_one(self, cmd, args):
         """运行单任务入口"""
-        no_arg_cmd = ['help', 'logout', 'update', 'sign']
-        cmd_with_arg = ['ls', 'll', 'down', 'mkdir',
+        no_arg_cmd = ['help', 'logout', 'update', 'sign', 'who', 'quota']
+        cmd_with_arg = ['ls', 'll', 'down', 'mkdir', 'su',
                         'mv', 'rename', 'rm', 'share', 'upload']
 
         if cmd in ("upload", "down"):
@@ -484,9 +570,9 @@ class Commander:
 
     def run(self):
         """处理交互模式用户命令"""
-        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'login', 'logout',
-                      'refresh', 'rmode', 'setpath', 'update', 'sign']
-        cmd_with_arg = ['ls', 'll', 'cd', 'down', 'jobs', 'shared',
+        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'logout',
+                      'refresh', 'rmode', 'setpath', 'update', 'sign', 'who', 'quota']
+        cmd_with_arg = ['ls', 'll', 'cd', 'down', 'jobs', 'shared', 'su','login',
                         'mkdir', 'mv', 'rename', 'rm', 'share', 'upload']
 
         choice_list = [handle_name(i)

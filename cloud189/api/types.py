@@ -6,7 +6,7 @@ from collections import namedtuple
 
 
 __all__ = ['FileInfo', 'RecInfo', 'PathInfo', 'UpCode', 'MkCode',
-           'ShareCode', 'FolderTree', 'ShareInfo']
+           'ShareCode', 'FolderTree', 'ShareInfo', 'UserInfo']
 
 
 _base_info = ['name', 'id', 'pid', 'ctime', 'optime', 'size', 'ftype', 'isFolder', 'durl']
@@ -29,3 +29,5 @@ ShareCode = namedtuple('ShareCode', ['code', 'url', 'pwd', 'et'], defaults=(0, '
 FolderTree = namedtuple('FolderTree', ['name', 'id', 'pid', 'isParent'], defaults=('',) * 4)
 
 ShareInfo = namedtuple('ShareInfo', _share_info, defaults=('',) * len(_share_info))
+UserInfo = namedtuple('UserInfo', ['id', 'account', 'nickname', 'used', 'quota', 'vip', 'endTime',
+                                   'beginTime', 'domain'], defaults=('',) * 9)
