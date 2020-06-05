@@ -163,8 +163,7 @@ class Commander:
         """列出、切换用户"""
         users = config.get_users_name()
         def list_user():
-            for i in range(len(users)):
-                user = users[i]
+            for i, user in enumerate(users):
                 user_info = config.get_user_info(user)
                 methord = "用户名+密码 登录" if user_info[2] else "Cookie 登录"
                 print(f"[{i}] 用户名: {user}, {methord}")

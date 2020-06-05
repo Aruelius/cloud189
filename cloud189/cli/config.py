@@ -73,14 +73,14 @@ class Config:
 
     def del_user(self, name):
         name = self.encode(name)
-        if name in self._users.keys():
+        if name in self._users:
             del self._users[name]
             return True
         return False
 
     def change_user(self, name):
         name = self.encode(name)
-        if name in self._users.keys():
+        if name in self._users:
             user = self._users[name]
             self._cookie = user[0]
             self._username = user[1]
@@ -94,17 +94,12 @@ class Config:
         return False
 
     def get_users_name(self):
-        names = []
-        for name in self._users.keys():
-            names.append(self.decode(name))
-        return names
+        return [self.decode(user) for user in self._users]
 
     def get_user_info(self, name):
         name = self.encode(name)
-        if name in self._users.keys():
+        if name in self._users:
             return self._users[name]
-        else:
-            return None
 
     def encode(self, var):
         if isinstance(var, dict):
