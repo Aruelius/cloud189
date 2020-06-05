@@ -512,11 +512,12 @@ class Commander:
         used = ", 已使用: {:.3f} GB".format(user.used/1073741824)  # GB
         nickname = f", 昵称: {user.nickname}"
         print(f"账号: {user.account}, UID: {user.id}{nickname}{quota}{used}")
+        # 99 家庭云黄金会员, 199 家庭云铂金会员 (可能不是这个的值)
         if user.vip == 100:
             vip = "黄金会员"
-        elif user.vip == 1000:  # TODO: 未知代码, 可能需要修改
+        elif user.vip == 200:
             vip = "铂金会员"
-        else:
+        else:  # 0
             vip = "普通会员"
         start_time = f", 开始时间: {user.beginTime}" if user.beginTime else ''
         end_time = f", 到期时间: {user.endTime}" if user.endTime else ''
