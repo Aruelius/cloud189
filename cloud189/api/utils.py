@@ -3,6 +3,7 @@ API 处理网页数据、数据切片时使用的工具
 """
 
 import os
+import sys
 import logging
 import hmac
 import hashlib
@@ -14,9 +15,10 @@ import rsa
 
 # 调试日志设置
 logger = logging.getLogger('cloud189')
+log_file = os.path.dirname(sys.argv[0]) + os.sep + 'debug-cloud189.log'
 fmt_str = "%(asctime)s [%(filename)s:%(lineno)d] %(funcName)s %(levelname)s - %(message)s"
 logging.basicConfig(level=logging.DEBUG,
-                    filename="debug-cloud189.log",
+                    filename=log_file,
                     filemode="a",
                     format=fmt_str,
                     datefmt="%Y-%m-%d %H:%M:%S")
