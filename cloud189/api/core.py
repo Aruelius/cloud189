@@ -992,7 +992,8 @@ class Cloud189(object):
         if resp.status_code != requests.codes.ok:
             print(f"签到失败 {resp=}, {headers=}")
         else:
-            msg = re.findall(r'获得.+空间', resp.text)[0]
+            msg = re.search(r'获得.+?空间', resp.text)
+            msg = msg.group() if msg else "" 
             print(f"签到成功！{msg}。每天签到可领取更多福利哟，记得常来！)
 
         url = 'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action'
