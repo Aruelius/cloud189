@@ -392,13 +392,13 @@ class Commander:
                 self._disk.get_file_info_by_url(item, pwd)
             elif file := self._file_list.find_by_name(item):
                 downloader = Downloader(self._disk)
-                if file.isFolder:
-                    # TODO: 下载文件夹
-                    print("暂不支持下载文件夹！")
+                f_path = '/'.join(self._path_list.all_name)  # 文件在网盘的父路径
+                if file.isFolder:  # 使用 web 接口打包下载文件夹
+                    downloader.set_fid(file.id, is_file=False, f_path=f_path, f_name=item)
+                    task_flag = True
+                    self._task_mgr.add_task(downloader)  # 提交下载任务
                 else:  # 下载文件
-                    path = '/'.join(self._path_list.all_name) + \
-                        '/' + item  # 文件在网盘的绝对路径
-                    downloader.set_fid(file.id, is_file=True, f_path=path)
+                    downloader.set_fid(file.id, is_file=True, f_path=f_path, f_name=item)
                     task_flag = True
                     self._task_mgr.add_task(downloader)  # 提交下载任务
             else:

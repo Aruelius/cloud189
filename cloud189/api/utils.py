@@ -162,5 +162,7 @@ def get_chunk_size(total_size: int) -> int:
         return 1024 * 1024 * 10  # 10 MB
     elif total_size >= 1024 * 1024 * 100:  # 100 MB
         return 1024 * 1024 * 4  # 4 MB
+    elif total_size == -1:
+        return 1024 * 500  # 100 KB
     else:
-        return 1024 * 1024 * 1  # 1 MB
+        return 1024 * 1024  # 1 MB

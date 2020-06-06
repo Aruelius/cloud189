@@ -1,5 +1,5 @@
 """
-天翼云盘 API，封装了对天翼云的各种操作，解除了上传格式、大小限制
+天翼云盘 API，封装了对天翼云的各种操作
 """
 
 import os
@@ -8,8 +8,8 @@ import json
 import traceback
 from time import sleep
 
-import requests
 from xml.etree import ElementTree
+import requests
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 from urllib3 import disable_warnings
 from urllib3.exceptions import InsecureRequestWarning
@@ -696,50 +696,84 @@ class Cloud189(object):
                                           size=size, ftype=ftype, isFolder=isFolder, account=account,
                                           durl=durl, count=count)
 
-    def down_file_by_id(self, fid, save_path='./Download', callback=None) -> int:
-        code, infos = self.get_file_info_by_id(fid)
-        if code != Cloud189.SUCCESS:
-            logging.error(f"Down by id: 获取文件{fid=}详情失败！")
-            return code
-
+    def _down_one_link(self, durl, save_path, callback=None) -> int:
+        """下载器"""
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-        durl = 'https:' + infos.durl
-        resp = self._get(durl, stream=True)
+        os.environ['LANG'] = 'enUS.UTF-8'
+        resp = self._get(durl, stream=True, timeout=None)
         if not resp:
-            logging.error("Down by id: network error!")
+            logging.error("Download link: network error!")
             return Cloud189.FAILED
-        total_size = int(resp.headers['Content-Length'])
 
-        file_path = save_path + os.sep + infos.name
-        if os.path.exists(file_path):
+        content_d = resp.headers['content-disposition'].encode('latin-1').decode('utf-8')
+        file_name = re.search(r'filename="(.+)"', content_d)
+        file_name = file_name.group(1) if file_name else ''
+        if not file_name:
+            logger.error("Download link: cannot get file name!")
+            return Cloud189.FAILED
+
+        file_path = save_path + os.sep + file_name
+        total_size = resp.headers.get('content-length')
+        if total_size:
+            total_size = int(total_size)
+        else:  # no content length in headers
+            total_size = -1
+
+        now_size = 0
+        if os.path.exists(file_path) and total_size != -1:
             now_size = os.path.getsize(file_path)  # 本地已经下载的文件大小
             if now_size >= total_size:  # 已经下载完成
                 if callback is not None:
-                    callback(infos.name, total_size, now_size, 'exist')
-                logger.debug(f"Down by id: the file already exists in the local {fid=}")
+                    callback(file_name, total_size, now_size, 'exist')
+                logger.debug(f"Download link: the file already exists in the local {file_name=} {durl=}")
                 return Cloud189.SUCCESS
-        else:
-            now_size = 0
-        logger.debug(f'Down by id: {file_path=}, {now_size=}, {total_size=}')
+            else:  # 断点续传
+                headers = {**self._headers, 'Range': 'bytes=%d-' % now_size}
+                resp = self._get(durl, stream=True, headers=headers, timeout=None)
+                if not resp:
+                    return Cloud189.FAILED
 
+        logger.debug(f'Download link: {file_path=}, {now_size=}, {total_size=}')
         chunk_size = get_chunk_size(total_size)
-        headers = {**self._headers, 'Range': 'bytes=%d-' % now_size}
-        resp = self._get(durl, stream=True, headers=headers)
-
-        if not resp:
-            return Cloud189.FAILED
-
         with open(file_path, "ab") as f:
             for chunk in resp.iter_content(chunk_size):
                 if chunk:
                     f.write(chunk)
                     f.flush()
                     now_size += len(chunk)
-                    if callback is not None:
-                        callback(infos.name, total_size, now_size)
-        logger.debug(f"Down by id: finished {total_size=}, {now_size=}")
+                    if callback:
+                        callback(file_name, total_size, now_size)
+        if total_size == -1 and callback:
+            callback(file_name, now_size, now_size)
+        logger.debug(f"Download link: finished {total_size=}, {now_size=}")
         return Cloud189.SUCCESS
+
+    def down_file_by_id(self, fid, save_path='./Download', callback=None) -> int:
+        """通过 fid 下载单个文件"""
+        code, infos = self.get_file_info_by_id(fid)
+        if code != Cloud189.SUCCESS:
+            logging.error(f"Down by id: 获取文件{fid=}详情失败！")
+            return code
+        durl = 'https:' + infos.durl
+        return self._down_one_link(durl, save_path, callback)
+
+    def down_dirzip_by_id(self, fid, save_path='./Download', callback=None) -> int:
+        """打包下载文件夹"""
+        url = self._host_url + '/downloadMultiFiles.action'
+        params = {
+            'fileIdS': fid,
+            'downloadType': 1,
+            'recursive': 1
+        }
+        resp = self._get(url, params=params, allow_redirects=False)
+        if resp.status_code == requests.codes['found']:  # 302
+            durl = resp.headers.get("Location")
+        else:
+            logger.debug(f"Down folder failed: {resp.status_code}")
+            return Cloud189.FAILED
+
+        return self._down_one_link(durl, save_path, callback)
 
     def delete_by_id(self, fid):
         '''删除文件(夹)'''
@@ -993,7 +1027,7 @@ class Cloud189(object):
             print(f"签到失败 {resp=}, {headers=}")
         else:
             msg = re.search(r'获得.+?空间', resp.text)
-            msg = msg.group() if msg else "" 
+            msg = msg.group() if msg else ""
             print(f"签到成功！{msg}。每天签到可领取更多福利哟，记得常来！")
 
         url = 'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action'

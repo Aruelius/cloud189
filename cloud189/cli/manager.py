@@ -2,7 +2,7 @@ import time
 import threading
 
 from cloud189.cli.downloader import TaskType
-from cloud189.cli.utils import info, error
+from cloud189.cli.utils import info, error, get_file_size_str
 from cloud189.cli.reprint import output  # 修改了 magic_char
 
 __all__ = ['global_task_mgr']
@@ -47,7 +47,10 @@ class TaskManager(object):
 
     @staticmethod
     def _size_to_msg(now_size, total_size, msg, pid, task) -> (str, bool):
-        percent = now_size / total_size * 100
+        if total_size == -1:
+            percent = get_file_size_str(now_size)
+        else:
+            percent = "{:7.1f}%".format(now_size / total_size * 100)
         has_error = len(task.get_err_msg()) != 0
         finish = False  # 秒传退出外层循环
         if task.is_alive():  # 任务执行中
@@ -55,12 +58,12 @@ class TaskManager(object):
         elif not task.is_alive() and has_error:  # 任务执行完成, 但是有错误信息
             status = '\033[1;31mError   \033[0m'
         else:  # 任务正常执行完成
-            percent = 100  # 可能更新不及时
+            percent = "{:7.1f}%".format(100)  # 可能更新不及时
             status = '\033[1;34mFinished\033[0m'
         if task.get_task_type() == TaskType.DOWNLOAD:
             d_arg, f_name = task.get_cmd_info()
-            d_arg = f_name if type(d_arg) == int else d_arg  # 显示 id 对应的文件名
-            result = f"[{pid}] Status: {status} | Process: {percent:5.1f}% | Download: {d_arg}"
+            d_arg = f_name if isinstance(d_arg, int) else d_arg  # 显示 id 对应的文件名
+            result = f"[{pid}] Status: {status} | Process: {percent} | Download: {d_arg}"
         else:
             up_path, folder_name = task.get_cmd_info()
             done_files, total_files = task.get_count()
@@ -77,7 +80,7 @@ class TaskManager(object):
                 finish = True
                 proc = "\033[1;31m远端存在\033[0m"
             else:
-                proc = f"{percent:7.1f}%"
+                proc = percent
             result = f"[{pid}] Status: {status} | Process:{proc} | Upload: {up_path}{count} -> {folder_name}"
 
         return result, finish
@@ -101,7 +104,7 @@ class TaskManager(object):
         global output_list
         now_size, total_size, msg = task.get_process()
         done_files, total_files = task.get_count()
-        while now_size < total_size or done_files < total_files:
+        while total_size == -1 or now_size < total_size or done_files < total_files:
             if not TaskManager.running:
                 break
             result, finished = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)

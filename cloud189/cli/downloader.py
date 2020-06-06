@@ -33,6 +33,7 @@ class Downloader(Thread):
         self._down_type = None
         self._down_args = None
         self._f_path = None
+        self._f_name = ''
         self._now_size = 0
         self._total_size = 1
         self._msg = ''  # 备用
@@ -64,7 +65,7 @@ class Downloader(Thread):
 
     def get_cmd_info(self):
         """获取命令行的信息"""
-        return self._down_args, self._f_path
+        return self._down_args, self._f_path + '/' + self._f_name
 
     def get_err_msg(self) -> list:
         """获取后台下载时保存的错误信息"""
@@ -84,10 +85,11 @@ class Downloader(Thread):
             self._down_type = DownType.INVALID_URL
         '''
 
-    def set_fid(self, fid, is_file=True, f_path=None):
+    def set_fid(self, fid, is_file=True, f_path=None, f_name=None):
         """设置 id 下载任务"""
         self._down_args = fid
-        self._f_path = f_path  # 文件(夹)名在网盘的路径
+        self._f_path = f_path  # 文件(夹)名在网盘的父路径
+        self._f_name = f_name  # 文件(夹)名在网盘的名字
         self._down_type = DownType.FILE_ID if is_file else DownType.FOLDER_ID
 
     def _show_progress(self, file_name, total_size, now_size, msg=''):
@@ -131,13 +133,14 @@ class Downloader(Thread):
                 self._error_msg(f"文件夹下载失败: {why_error(code)} -> {self._down_args}")
 
         elif self._down_type == DownType.FILE_ID:
-            code = self._disk.down_file_by_id(self._down_args, self._save_path, self._show_progress)
+            save_path = self._save_path + os.sep + self._f_path
+            code = self._disk.down_file_by_id(self._down_args, save_path, self._show_progress)
             if code != Cloud189.SUCCESS:
                 self._error_msg(f"文件下载失败: {why_error(code)} -> {self._f_path}")
 
         elif self._down_type == DownType.FOLDER_ID:
-            code = self._disk.down_dir_by_id(self._down_args, self._save_path, callback=self._show_progress,
-                                             mkdir=True, failed_callback=self._show_down_failed)
+            save_path = self._save_path + os.sep + self._f_path + os.sep + self._f_name
+            code = self._disk.down_dirzip_by_id(self._down_args, save_path, callback=self._show_progress)
             if code != Cloud189.SUCCESS:
                 self._error_msg(f"文件夹下载失败: {why_error(code)} -> {self._f_path} ")
 
