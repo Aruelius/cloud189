@@ -158,11 +158,11 @@ def get_upload_chunks(file, chunk_size=8096):
 
 def get_chunk_size(total_size: int) -> int:
     """根据文件大小返回 块大小"""
-    if total_size >= 1024 * 1024 * 1024:  # 1 GB
-        return 1024 * 1024 * 10  # 10 MB
-    elif total_size >= 1024 * 1024 * 100:  # 100 MB
-        return 1024 * 1024 * 4  # 4 MB
+    if total_size >= 1 << 30:  # 1 GB
+        return  10 << 20  # 10 MB
+    elif total_size >= 100 << 20:  # 100 MB
+        return 4 << 20  # 4 MB
     elif total_size == -1:
-        return 1024 * 500  # 100 KB
+        return 100 << 10  # 100 KB
     else:
-        return 1024 * 1024  # 1 MB
+        return 1 << 20  # 1 MB
