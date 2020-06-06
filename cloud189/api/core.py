@@ -994,7 +994,7 @@ class Cloud189(object):
         else:
             msg = re.search(r'获得.+?空间', resp.text)
             msg = msg.group() if msg else "" 
-            print(f"签到成功！{msg}。每天签到可领取更多福利哟，记得常来！)
+            print(f"签到成功！{msg}。每天签到可领取更多福利哟，记得常来！")
 
         url = 'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action'
         params = {
