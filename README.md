@@ -1,5 +1,5 @@
 <h1 align="center">- cloud189-cli -</h3>
-<pre>
+<pre align="center">
 #    /$$$$$$  /$$                           /$$   /$$    /$$$$$$   /$$$$$$ 
 #   /$$__  $$| $$                          | $$ /$$$$   /$$__  $$ /$$__  $$
 #  | $$  \__/| $$  /$$$$$$  /$$   /$$  /$$$$$$$|_  $$  | $$  \ $$| $$  \ $$
@@ -10,8 +10,10 @@
 #   \______/ |__/ \______/  \______/  \_______/|______/ \______/  \______/ 
 #                                                                          
 --------------------------------------------------------------------------
-<img src="https://img.shields.io/github/v/release/Aruelius/cloud189.svg?logo=iCloud"> <img src="https://img.shields.io/github/last-commit/Aruelius/cloud189.svg">
 </pre>
+<p align="center">
+<img src="https://img.shields.io/github/v/release/Aruelius/cloud189.svg?logo=iCloud"> <img src="https://img.shields.io/github/last-commit/Aruelius/cloud189.svg">
+</p>
 
 # 准备
 1. Python 版本 >= 3.8
@@ -100,7 +102,7 @@ sudo apt-get install libreadline-dev
 ~~~
 CentOS
 ~~~shell
-sudo yum install readline-devel 
+yum install readline-devel
 ~~~
 # License
 
