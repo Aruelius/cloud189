@@ -1,5 +1,5 @@
-import time
-import threading
+from time import sleep
+from threading import Thread
 
 from cloud189.cli.downloader import TaskType
 from cloud189.cli.utils import info, error, get_file_size_str
@@ -8,11 +8,28 @@ from cloud189.cli.reprint import output  # 修改了 magic_char
 __all__ = ['global_task_mgr']
 
 
+def input_with_timeout(timeout=1.5):
+    """带超时的 input"""
+    input_with_timeput_ans = None
+    def foo():
+        global input_with_timeput_ans
+        input_with_timeput_ans = input()
+
+    thd = Thread(target=foo)
+    thd.daemon = True
+    thd.start()
+    sleep(timeout)
+    return input_with_timeput_ans
+
+
 class TaskManager(object):
     """下载/上传任务管理器"""
 
     def __init__(self):
         self._tasks = []
+
+    def __len__(self):
+        return len(self._tasks)
 
     def is_empty(self):
         """任务列表是否为空"""
@@ -54,7 +71,10 @@ class TaskManager(object):
         has_error = len(task.get_err_msg()) != 0
         finish = False  # 秒传退出外层循环
         if task.is_alive():  # 任务执行中
-            status = '\033[1;32mRunning \033[0m'
+            if now_size >= total_size:  # 有可能 thread 关闭不及时
+                status = '\033[1;34mFinished\033[0m'
+            else:
+                status = '\033[1;32mRunning \033[0m'
         elif not task.is_alive() and has_error:  # 任务执行完成, 但是有错误信息
             status = '\033[1;31mError   \033[0m'
         else:  # 任务正常执行完成
@@ -88,42 +108,43 @@ class TaskManager(object):
     @staticmethod
     def _show_task(pid, task, follow=False):
         TaskManager.running = True  # 相当于每次执行 jobs -f 都初始化
+        global output_list, total_tasks
 
         def stop_show_task():
-            """
-            停止显示任务状态
-            问题：由于线程执行的是阻塞操作，不知道自己被结束了，
-                  它还在等待一个 input，所以在任务状态 Finnish 之后需要回车。
-            """
-            while TaskManager.running:
-                stop_signal = input()
+            """停止显示任务状态"""
+            while TaskManager.running or total_tasks > 0:
+                stop_signal = input_with_timeout()
                 if stop_signal:
                     TaskManager.running = False
-                time.sleep(1)
-        if follow: threading.Thread(target=stop_show_task).start()
-        global output_list
+                sleep(1)
+        if follow: Thread(target=stop_show_task).start()
         now_size, total_size, msg = task.get_process()
         done_files, total_files = task.get_count()
-        while total_size == -1 or now_size < total_size or done_files < total_files:
+        while total_tasks > 1 or total_size == -1 or now_size < total_size or done_files < total_files:
             if not TaskManager.running:
                 break
             result, finished = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
             if follow:
                 output_list[pid] = result
-                time.sleep(1)
+                sleep(1)
                 now_size, total_size, msg = task.get_process()
                 done_files, total_files = task.get_count()
+                if now_size >= total_size:
+                    total_tasks -= 1
+                    break
             else:
                 break
             if finished:  # 文件秒传没有大小
                 break
         if now_size >= total_size:
             result, _ = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
-            if follow and TaskManager.running:
-                output_list[pid] = result
+            output_list[pid] = result
+            if follow:
+                output_list.append(f"[{pid}] finished")
+
         if follow and TaskManager.running:
-            output_list.append(f"[{pid}] finished")
-            TaskManager.running = False
+            if total_tasks < 1:
+                TaskManager.running = False
         elif not TaskManager.running:
             pass
         else:
@@ -131,13 +152,14 @@ class TaskManager(object):
 
     def _show_task_bar(self, pid=None, follow=False):
         """多行更新状态栏"""
-        global output_list
+        global output_list, total_tasks
         with output(output_type="list", initial_len=len(self._tasks), interval=0) as output_list:
             pool = []
+            total_tasks = len(self)
             for _pid, task in enumerate(self._tasks):
                 if pid is not None and _pid != pid:  # 如果指定了 pid 就只更新 pid 这个 task
                     continue
-                t = threading.Thread(target=self._show_task, args=(_pid, task, follow))
+                t = Thread(target=self._show_task, args=(_pid, task, follow))
                 t.start()
                 pool.append(t)
             [t.join() for t in pool]
