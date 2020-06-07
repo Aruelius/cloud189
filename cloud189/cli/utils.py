@@ -35,14 +35,14 @@ def get_file_size_str(filesize) -> str:
     if not filesize:
         return ''
     filesize = int(filesize)
-    if 0 < filesize < 1024**2:
+    if 0 < filesize < 1 << 20:
         return f"{round(filesize/1024, 2)}KB"
-    elif 1024**2 < filesize < 1024**3:
-        return f"{round(filesize/1024**2, 2)}MB"
-    elif 1024**3 < filesize < 1024**4:
-        return f"{round(filesize/1024**3, 2)}GB"
-    elif 1024**4 < filesize < 1024**5:
-        return f"{round(filesize/1024**4, 2)}TB"
+    elif 1 << 20 < filesize < 1 << 30:
+        return f"{round(filesize/(1 << 20), 2)}MB"
+    elif 1 << 30 < filesize < 1 << 40:
+        return f"{round(filesize/(1 << 30), 2)}GB"
+    elif 1 << 40 < filesize < 1 << 50:
+        return f"{round(filesize/(1 << 40), 2)}TB"
     else: return f"{filesize}Bytes"
 
 

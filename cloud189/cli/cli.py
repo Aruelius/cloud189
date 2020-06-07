@@ -1,3 +1,4 @@
+from time import sleep
 from getpass import getpass
 from random import choice
 from sys import exit as exit_cmd
@@ -189,12 +190,12 @@ class Commander:
                 error(f"序号 {select} 无效!")
                 return None
         config.work_id = self._work_id  # 保存旧的工作目录
-        config.change_user(select_user)
-        if self._disk.login_by_cookie(config) != Cloud189.SUCCESS:
-            error("切换用户失败!")
-        else:
+        result = config.change_user(select_user)
+        if result and self._disk.login_by_cookie(config) == Cloud189.SUCCESS:
             info(f"成功切换至用户 {config.username}")
             self.refresh(config.work_id)
+        else:
+            error("切换用户失败!")
 
     def ll(self, args):
         """列出文件(夹)，详细模式"""
@@ -498,9 +499,19 @@ class Commander:
             print("https:{0:<30} 提取码: {1:>4} [转存/下载/浏览: {2}/{3}/{4}] 文件名: {5}".format(
                 item.url, item.pwd, item.copyC, item.downC, item.prevC, f_name))
 
-    def sign(self):
+    def sign(self, args):
         """签到 + 抽奖"""
-        self._disk.user_sign()
+        if '-a' in args or '--auto' in args:
+            old_user = self.who()
+            print(old_user)
+            for user in config.get_users_name():
+                self.su([user, ])
+                sleep(0.5)
+                self._disk.user_sign()
+                sleep(0.5)
+            self.su([old_user, ])
+        else:
+            self._disk.user_sign()
 
     def who(self):
         """打印当前登录账户信息"""
@@ -524,6 +535,7 @@ class Commander:
         print(f"用户类别: {vip}{start_time}{end_time}")
         if user.domain:
             print(f"个人主页: https://cloud.189.cn/u/{user.domain}")
+        return user.account.replace('@189.cn', '')
 
     def quota(self):
         self.who()
@@ -552,8 +564,8 @@ class Commander:
 
     def run_one(self, cmd, args):
         """运行单任务入口"""
-        no_arg_cmd = ['help', 'logout', 'update', 'sign', 'who', 'quota']
-        cmd_with_arg = ['ls', 'll', 'down', 'mkdir', 'su',
+        no_arg_cmd = ['help', 'logout', 'update', 'who', 'quota']
+        cmd_with_arg = ['ls', 'll', 'down', 'mkdir', 'su', 'sign',
                         'mv', 'rename', 'rm', 'share', 'upload']
 
         if cmd in ("upload", "down"):
@@ -570,9 +582,9 @@ class Commander:
     def run(self):
         """处理交互模式用户命令"""
         no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'logout',
-                      'refresh', 'rmode', 'setpath', 'update', 'sign', 'who', 'quota']
-        cmd_with_arg = ['ls', 'll', 'cd', 'down', 'jobs', 'shared', 'su','login',
-                        'mkdir', 'mv', 'rename', 'rm', 'share', 'upload']
+                      'refresh', 'rmode', 'setpath', 'update', 'who', 'quota']
+        cmd_with_arg = ['ls', 'll', 'cd', 'down', 'jobs', 'shared', 'su', 'login',
+                        'mkdir', 'mv', 'rename', 'rm', 'share', 'upload', 'sign']
 
         choice_list = [handle_name(i)
                        for i in self._file_list.all_name]  # 引号包裹空格文件名

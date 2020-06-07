@@ -90,6 +90,7 @@ class Config:
             self._accessToken = user[5]
             self._save_path = user[6]
             self._work_id = user[7]
+            save_config(self)
             return True
         return False
 
