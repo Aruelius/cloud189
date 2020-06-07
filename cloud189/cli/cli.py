@@ -138,16 +138,32 @@ class Commander:
             if not user:
                 error("发生未知错误！")
                 return None
-            name = user.account
-            config.username = name.replace('@189.cn', '')
-            config.cookie = cookie
+            user_infos = {
+                'name': user.account.replace('@189.cn', ''),
+                'pwd': '',
+                'cookie': cookie,
+                'key': '',
+                'secret': '',
+                'token': '',
+                'save_path': './downloads',
+                'work_id': -11
+            }
+            config.set_infos(user_infos)
             self._work_id = config.work_id
             self.refresh()
         else:
             error("登录失败, 请检查 Cookie 是否正确")
 
-    def logout(self):
-        """注销"""
+    def logout(self, args):
+        """注销/删除用户"""
+        if args:  # 删除用户
+            for name in args:
+                result = config.del_user(name)
+                if result:
+                    info(f"成功删除用户 {name}")
+                else:
+                    error(f"删除用户 {name} 失败！")
+            return None
         clear_screen()
         self._prompt = '> '
         # self._disk.logout()  # TODO(rachpt@126.com): 还没有注销登录的方法
@@ -503,7 +519,6 @@ class Commander:
         """签到 + 抽奖"""
         if '-a' in args or '--auto' in args:
             old_user = self.who()
-            print(old_user)
             for user in config.get_users_name():
                 self.su([user, ])
                 sleep(0.5)
@@ -564,8 +579,8 @@ class Commander:
 
     def run_one(self, cmd, args):
         """运行单任务入口"""
-        no_arg_cmd = ['help', 'logout', 'update', 'who', 'quota']
-        cmd_with_arg = ['ls', 'll', 'down', 'mkdir', 'su', 'sign',
+        no_arg_cmd = ['help', 'update', 'who', 'quota']
+        cmd_with_arg = ['ls', 'll', 'down', 'mkdir', 'su', 'sign', 'logout',
                         'mv', 'rename', 'rm', 'share', 'upload']
 
         if cmd in ("upload", "down"):
@@ -581,9 +596,9 @@ class Commander:
 
     def run(self):
         """处理交互模式用户命令"""
-        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'logout',
+        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help',
                       'refresh', 'rmode', 'setpath', 'update', 'who', 'quota']
-        cmd_with_arg = ['ls', 'll', 'cd', 'down', 'jobs', 'shared', 'su', 'login',
+        cmd_with_arg = ['ls', 'll', 'cd', 'down', 'jobs', 'shared', 'su', 'login', 'logout',
                         'mkdir', 'mv', 'rename', 'rm', 'share', 'upload', 'sign']
 
         choice_list = [handle_name(i)

@@ -121,7 +121,7 @@ class Cloud189(object):
 
     def login_by_cookie(self, config):
         """使用 cookie 登录"""
-        cookies = config.cookie
+        cookies = config if isinstance(config, dict) else config.cookie
         try:
             for k, v in cookies.items():
                 self._session.cookies.set(k, v, domain=".cloud.189.cn")

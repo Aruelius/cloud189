@@ -222,6 +222,25 @@ class Config:
         self.update_user()
         save_config(self)
 
+    def set_infos(self, infos: dict):
+        if "name" in infos:
+            self._username = self.encode(infos["name"])
+        if "pwd" in infos:
+            self._password = self.encode(infos["pwd"])
+        if "cookie" in infos:
+            self._cookie = self.encode(infos["cookie"])
+        if "key" in infos:
+            self._sessionKey = self.encode(infos["key"])
+        if "secret" in infos:
+            self._sessionSecret = self.encode(infos["secret"])
+        if "token" in infos:
+            self._accessToken = self.encode(infos["token"])
+        if "save_path" in infos:
+            self._save_path = infos["save_path"]
+        if "work_id" in infos:
+            self._work_id = infos["work_id"]
+        save_config(self)
+
 
 # 全局配置对象
 try:
