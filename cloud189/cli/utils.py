@@ -13,6 +13,8 @@ from cloud189.cli import version
 GIT_REPO = "Aruelius/cloud189"
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
+M_platform = platform()
+OS_NAME = os.name
 
 
 def error(msg):
@@ -79,10 +81,9 @@ def captcha_handler(img_data):
     img_path = os.path.dirname(sys.argv[0]) + os.sep + 'captcha.png'
     with open(img_path, 'wb') as f:
         f.write(img_data)
-    m_platform = platform()
-    if m_platform == 'Darwin':
+    if M_platform == 'Darwin':
         os.system(f'open {img_path}')
-    elif m_platform == 'Linux':
+    elif M_platform == 'Linux':
         # 检测是否运行在没有显示屏的 console 上
         if os.environ.get('DISPLAY'):
             os.system(f'xdg-open {img_path}')
@@ -192,7 +193,7 @@ def print_logo():
 
 def print_help():
     # clear_screen()
-    help_text = f""" cloud189-cli | 天翼云盘客户端 for {sys.platform} | v{version}
+    help_text = f""" cloud189-cli | 天翼云盘客户端 for {M_platform} | v{version}
     • 支持文件秒传，文件夹保持相对路径上传
     • 获取文件分享链接，批量上传下载，断点续传等功能
 

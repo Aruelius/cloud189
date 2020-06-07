@@ -1,25 +1,45 @@
-from time import sleep
 from threading import Thread
+from time import sleep, monotonic
 
 from cloud189.cli.downloader import TaskType
-from cloud189.cli.utils import info, error, get_file_size_str
+from cloud189.cli.utils import info, error, get_file_size_str, OS_NAME
 from cloud189.cli.reprint import output  # 修改了 magic_char
 
 __all__ = ['global_task_mgr']
 
+output_list = output()
+total_tasks = 0
 
-def input_with_timeout(timeout=1.5):
-    """带超时的 input"""
-    input_with_timeput_ans = None
-    def foo():
-        global input_with_timeput_ans
-        input_with_timeput_ans = input()
 
-    thd = Thread(target=foo)
-    thd.daemon = True
-    thd.start()
-    sleep(timeout)
-    return input_with_timeput_ans
+class TimeoutExpired(Exception):
+    pass
+
+
+def input_with_timeout(timeout, timer=monotonic):
+    if OS_NAME == 'posix':  # *nix
+        import signal
+
+        def alarm_handler(signum, frame):
+            raise TimeoutExpired
+
+        signal.signal(signal.SIGALRM, alarm_handler)
+        signal.alarm(timeout)
+        try:
+            return input()
+        finally:
+            signal.alarm(0)
+    else:  # windos
+        import msvcrt
+
+        endtime = timer() + timeout
+        result = []
+        while timer() < endtime:
+            if msvcrt.kbhit():
+                result.append(msvcrt.getwche())
+                if result[-1] == '\n' or result[-1] == '\r':
+                    return ''.join(result[:-1])
+            sleep(0.05)  # 这个值太大会导致丢失按键信息
+        raise TimeoutExpired
 
 
 class TaskManager(object):
@@ -64,6 +84,7 @@ class TaskManager(object):
 
     @staticmethod
     def _size_to_msg(now_size, total_size, msg, pid, task) -> (str, bool):
+        """finish 仅用于标识秒传于失败任务，它们没有 size 信息"""
         if total_size == -1:
             percent = get_file_size_str(now_size)
         else:
@@ -112,30 +133,37 @@ class TaskManager(object):
 
         def stop_show_task():
             """停止显示任务状态"""
+            stop_signal = None
             while TaskManager.running or total_tasks > 0:
-                stop_signal = input_with_timeout()
-                if stop_signal:
-                    TaskManager.running = False
-                sleep(1)
+                try:
+                    stop_signal = input_with_timeout(3)
+                except TimeoutExpired:
+                    pass
+                else:
+                    if stop_signal:
+                        TaskManager.running = False
+                        break
+
         if follow: Thread(target=stop_show_task).start()
         now_size, total_size, msg = task.get_process()
         done_files, total_files = task.get_count()
-        while total_tasks > 1 or total_size == -1 or now_size < total_size or done_files < total_files:
+        # total_tasks 用于标记还没完成的任务数量，只有还有一个没有完成，其他已经完成了的也要等待
+        while total_tasks > 0 or total_size == -1 or now_size < total_size or done_files < total_files:
             if not TaskManager.running:
-                break
+                break  # 用户中断
             result, finished = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
             if follow:
                 output_list[pid] = result
                 sleep(1)
                 now_size, total_size, msg = task.get_process()
                 done_files, total_files = task.get_count()
-                if now_size >= total_size:
+                if now_size >= total_size and done_files >= total_files:
                     total_tasks -= 1
                     break
             else:
-                break
-            if finished:  # 文件秒传没有大小
-                break
+                break  # 非实时显示模式，直接结束
+            if finished:
+                break  # 文件秒传、出错 没有大小
         if now_size >= total_size:
             result, _ = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
             output_list[pid] = result
