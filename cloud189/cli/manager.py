@@ -17,17 +17,14 @@ class TimeoutExpired(Exception):
 
 def input_with_timeout(timeout, timer=monotonic):
     if OS_NAME == 'posix':  # *nix
-        import signal
+        import select
+        import sys
 
-        def alarm_handler(signum, frame):
-            raise TimeoutExpired
+        ready, _, _ = select.select([sys.stdin], [], [], timeout)
+        if ready:
+            return sys.stdin.readline().rstrip('\n')
+        raise TimeoutExpired
 
-        signal.signal(signal.SIGALRM, alarm_handler)
-        signal.alarm(timeout)
-        try:
-            return input()
-        finally:
-            signal.alarm(0)
     else:  # windos
         import msvcrt
 
