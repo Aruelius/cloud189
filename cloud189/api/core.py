@@ -5,7 +5,6 @@
 import os
 import re
 import json
-import traceback
 from time import sleep
 
 from xml.etree import ElementTree
@@ -27,16 +26,17 @@ class Cloud189(object):
     ID_ERROR = 1
     PASSWORD_ERROR = 2
     LACK_PASSWORD = 3
-    UP_COMMIT_ERROR = 4  # 上传文件 commit 错误
     MKDIR_ERROR = 5
     URL_INVALID = 6
     FILE_CANCELLED = 7
     PATH_ERROR = 8
     NETWORK_ERROR = 9
     CAPTCHA_ERROR = 10
+    UP_COMMIT_ERROR = 4  # 上传文件 commit 错误
     UP_CREATE_ERROR = 11  # 创建上传任务出错
     UP_UNKNOWN_ERROR = 12  # 创建上传任务未知错误
     UP_EXHAUSTED_ERROR = 13  # 上传量用完
+    UP_ILLEGAL_ERROR = 14  # 文件非法
 
     def __init__(self):
         self._session = requests.Session()
@@ -398,24 +398,32 @@ class Cloud189(object):
                 "isLog": 0
             }
             resp = requests.post(url, headers=headers, data=post_data, timeout=10)
-            if resp.json()['res_message'] == "UserDayFlowOverLimited":
-                logger.error(f"Upload by client [create]: {up_info.path=}, the daily transmission of the current login account has been exhausted!")
-                code = Cloud189.UP_EXHAUSTED_ERROR
-            elif resp.json().get('uploadFileId'):
-                upload_file_id = resp.json()['uploadFileId']
-                file_upload_url = resp.json()['fileUploadUrl']
-                file_commit_url = resp.json()['fileCommitUrl']
-                file_data_exists = resp.json()['fileDataExists']
-                logger.debug(
-                    f"Upload by client [create]: successfully created upload task, node {file_upload_url.split('//')[1].split('.')[0]}")
-                code = Cloud189.SUCCESS
-                infos = (upload_file_id, file_upload_url, file_commit_url, file_data_exists)
+            if resp:
+                resp = resp.json()
+                if resp['res_message'] == "UserDayFlowOverLimited":
+                    _msg = f"{up_info.path=}, The daily transmission of the current login account has been exhausted!"
+                    code = Cloud189.UP_EXHAUSTED_ERROR
+                elif resp.get('res_code') == 'InfoSecurityErrorCode':
+                    _msg = f"{up_info.path=} Illegal file!"
+                    code = Cloud189.UP_ILLEGAL_ERROR
+                elif resp.get('uploadFileId'):
+                    upload_file_id = resp['uploadFileId']
+                    file_upload_url = resp['fileUploadUrl']
+                    file_commit_url = resp['fileCommitUrl']
+                    file_data_exists = resp['fileDataExists']
+                    node = file_upload_url.split('//')[1].split('.')[0]
+                    _msg = f"successfully created upload task, {node=}"
+                    infos = (upload_file_id, file_upload_url, file_commit_url, file_data_exists)
+                    code = Cloud189.SUCCESS
+                else:
+                    _msg = f"unknown response {resp=}. Please contact the developer!"
+                    code = Cloud189.UP_UNKNOWN_ERROR
+                logger.dubug(f'Upload by client [create]: {_msg}')
             else:
-                logger.error(f'Upload by client [create]: unknown response {resp.text=},{resp.json()}, please contact the developer!')
-                code = Cloud189.UP_UNKNOWN_ERROR
-        except Exception:
+                code = Cloud189.NETWORK_ERROR
+        except Exception as e:
             code = Cloud189.UP_CREATE_ERROR
-            traceback.print_exc()  # TODO: 可能需要删除
+            logger.error(f'Upload by client [create]: an error occurred! {e=}')
         return code, infos
 
     def _upload_file_data(self, file_upload_url, upload_file_id, up_info: UpInfo):
@@ -486,18 +494,17 @@ class Cloud189(object):
                 "isLog": 0,
                 "ResumePolicy": 1
             }
-            resp = requests.post(url, data=post_data,
-                                 headers=headers, timeout=10)
+            resp = requests.post(url, data=post_data, headers=headers, timeout=10)
             node = ElementTree.XML(resp.text)
             if node.text != 'error':
                 fid = node.findtext('id')
-                logger.debug(
-                    f"Upload by client [commit]: at[{node.findtext('createDate')}] upload [{node.findtext('name')}]({node.findtext('id')}) success")
+                fname = node.findtext('name')
+                time = node.findtext('createDate')
+                logger.debug(f"Upload by client [commit]: at[{time}] upload [{fname}], {fid=} success!")
             else:
                 logger.error(f'Upload by client [commit]: unknown error {resp.text=}')
-        except Exception:
-            logger.error('Upload by client [commit]: an error occurred!')
-            traceback.print_exc()
+        except Exception as e:
+            logger.error(f'Upload by client [commit]: an error occurred! {e=}')
         return fid
 
     def _upload_file_by_client(self, up_info: UpInfo) -> UpCode:
@@ -507,6 +514,8 @@ class Cloud189(object):
         """
         if up_info.callback and up_info.check:
             up_info.callback(up_info.path, 1, 0, 'check')
+        quick_up = False
+        fid = ''
         code, infos = self._create_upload_file(up_info)
         if code == Cloud189.SUCCESS:
             upload_file_id, file_upload_url, file_commit_url, file_data_exists = infos
@@ -514,26 +523,30 @@ class Cloud189(object):
                 logger.debug(f"Upload by client: [{up_info.path}] enter the quick_up process...")
                 fid = self._upload_client_commit(file_commit_url, upload_file_id)
                 if fid:
+                    call_back_msg = 'quick_up'
                     quick_up = True
-                    if up_info.callback:  # 用于文件夹上传中的 秒传过程
-                        up_info.callback(up_info.path, 100, 100, 'quick_up')
                 else:
-                    if up_info.callback:
-                        up_info.callback(up_info.path, 1, 0, 'error')
-                    logger.debug(f"Upload by client: [{up_info.path}] quick_up failed!")
+                    call_back_msg = 'error'
                     code = Cloud189.UP_COMMIT_ERROR
             else:  # 上传文件数据
                 logger.debug(f"Upload by client: [{up_info.path}] enter the normal upload process...")
                 code = self._upload_file_data(file_upload_url, upload_file_id, up_info)
-                if code != Cloud189.SUCCESS:
+                if code == Cloud189.SUCCESS:
+                    call_back_msg = None
+                    fid = self._upload_client_commit(file_commit_url, upload_file_id)
+                else:
+                    call_back_msg = 'error'
                     logger.debug(f"Upload by client: [{up_info.path}] normal upload failed!")
-                    return UpCode(code=code, path=up_info.path)
-                fid = self._upload_client_commit(file_commit_url, upload_file_id)
-                quick_up = False
-            logging.debug(f"Upload by client: results {code=}, {fid=}, {quick_up=}")
-            return UpCode(code=code, id=fid, quick_up=quick_up, path=up_info.path)
+        elif code == Cloud189.UP_ILLEGAL_ERROR:
+            call_back_msg = 'illegal'
+        elif code == Cloud189.UP_EXHAUSTED_ERROR:
+            call_back_msg = 'exhausted'
         else:
-            return UpCode(code=code, path=up_info.path)
+            call_back_msg = 'error'
+
+        if up_info.callback and call_back_msg:
+            up_info.callback(up_info.path, 1, 1, call_back_msg)
+        return UpCode(code=code, id=fid, quick_up=quick_up, path=up_info.path)
 
     def _upload_file_by_web(self, up_info: UpInfo) -> UpCode:
         """使用网页接口上传单文件，不支持秒传
@@ -588,22 +601,25 @@ class Cloud189(object):
 
             monitor = MultipartEncoderMonitor(post_data, _call_back)
             result = self._post(upload_url, data=monitor, headers=headers, timeout=None)
-            if not result:  # 网络异常
-                logger.error(f"Upload by web: [{up_info.path}] network error(3)!")
-                if up_info.callback:
-                    up_info.callback(up_info.path, 1, 1, 'error')
-                return UpCode(code=Cloud189.NETWORK_ERROR, path=up_info.path)
-            else:
+            fid = ''
+            if result:
                 result = result.json()
-            if 'id' not in result:
-                logger.error(f"Upload by web: [{up_info.path}] failed, {result=}")
-                if up_info.callback:
-                    up_info.callback(up_info.path, 1, 1, 'error')
-                return UpCode(code=Cloud189.FAILED, path=up_info.path)  # 上传失败
+                if 'id' in result:
+                    call_back_msg = ''
+                    fid = result['id']
+                    code = Cloud189.SUCCESS
+                else:
+                    call_back_msg = 'error'
+                    code = Cloud189.FAILED
+                    logger.error(f"Upload by web: [{up_info.path}] failed, {result=}")
+            else:  # 网络异常
+                call_back_msg = 'error'
+                code = Cloud189.NETWORK_ERROR
+                logger.error(f"Upload by web: [{up_info.path}] network error(3)!")
+            if up_info.callback:
+                up_info.callback(up_info.path, 1, 1, call_back_msg)
+            return UpCode(code=code, id=fid, path=up_info.path)
 
-        if up_info.callback:
-            up_info.callback(up_info.path, up_info.size, up_info.size)  # 更新上传状态
-        return UpCode(code=Cloud189.SUCCESS, id=result['id'], path=up_info.path)
 
     def _check_up_file_exist(self, up_info: UpInfo) -> UpInfo:
         """检查文件是否已经存在"""

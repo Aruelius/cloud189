@@ -68,6 +68,24 @@ def why_error(code):
         return '未知错误'
 
 
+def get_upload_status(msg, percent):
+    """文件上传状态"""
+    if msg == 'quick_up':
+        return "  \033[1;34m秒传!\033[0m "
+    elif msg == 'check':
+        return "\033[1;34m秒传检查\033[0m"
+    elif msg == 'error':
+        return "\033[1;31m秒传失败\033[0m"
+    elif msg == 'exist':
+        return "\033[1;31m远端存在\033[0m"
+    elif msg == 'illegal':
+        return "\033[1;31m非法文件\033[0m"
+    elif msg == 'exhausted':
+        return "\033[1;31m流量耗尽\033[0m"
+    else:
+        return percent
+
+
 def set_console_style():
     """设置命令行窗口样式"""
     if os.name != 'nt':

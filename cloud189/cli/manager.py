@@ -2,7 +2,7 @@ from threading import Thread
 from time import sleep, monotonic
 
 from cloud189.cli.downloader import TaskType
-from cloud189.cli.utils import info, error, get_file_size_str, OS_NAME
+from cloud189.cli.utils import info, error, get_file_size_str, OS_NAME, get_upload_status
 from cloud189.cli.reprint import output  # 修改了 magic_char
 
 __all__ = ['global_task_mgr']
@@ -80,14 +80,13 @@ class TaskManager(object):
         task.start()
 
     @staticmethod
-    def _size_to_msg(now_size, total_size, msg, pid, task) -> (str, bool):
-        """finish 仅用于标识秒传于失败任务，它们没有 size 信息"""
-        if total_size == -1:
+    def _size_to_msg(now_size, total_size, msg, pid, task) -> str:
+        """任务详情可视化"""
+        if total_size == -1:  # zip 打包下载
             percent = get_file_size_str(now_size)
         else:
             percent = "{:7.1f}%".format(now_size / total_size * 100)
         has_error = len(task.get_err_msg()) != 0
-        finish = False  # 秒传退出外层循环
         if task.is_alive():  # 任务执行中
             if now_size >= total_size:  # 有可能 thread 关闭不及时
                 status = '\033[1;34mFinished\033[0m'
@@ -106,26 +105,15 @@ class TaskManager(object):
             up_path, folder_name = task.get_cmd_info()
             done_files, total_files = task.get_count()
             count = f" ({done_files}/{total_files})" if total_files > 0 else ""
-            if msg == 'quick_up':
-                finish = True
-                proc = "  \033[1;34m秒传!\033[0m "
-            elif msg == 'check':
-                proc = "\033[1;34m秒传检查\033[0m"
-            elif msg == 'error':
-                finish = True
-                proc = "\033[1;31m秒传失败\033[0m"
-            elif msg == 'exist':
-                finish = True
-                proc = "\033[1;31m远端存在\033[0m"
-            else:
-                proc = percent
+            proc = get_upload_status(msg, percent)
             result = f"[{pid}] Status: {status} | Process:{proc} | Upload: {up_path}{count} -> {folder_name}"
 
-        return result, finish
+        return result
 
     @staticmethod
     def _show_task(pid, task, follow=False):
         TaskManager.running = True  # 相当于每次执行 jobs -f 都初始化
+        # total_tasks 用于标记还没完成的任务数量
         global output_list, total_tasks
 
         def stop_show_task():
@@ -144,11 +132,10 @@ class TaskManager(object):
         if follow: Thread(target=stop_show_task).start()
         now_size, total_size, msg = task.get_process()
         done_files, total_files = task.get_count()
-        # total_tasks 用于标记还没完成的任务数量，只有还有一个没有完成，其他已经完成了的也要等待
-        while total_tasks > 0 or total_size == -1 or now_size < total_size or done_files < total_files:
+        while  total_size == -1 or now_size < total_size or done_files < total_files:
             if not TaskManager.running:
                 break  # 用户中断
-            result, finished = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
+            result = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
             if follow:
                 output_list[pid] = result
                 sleep(1)
@@ -159,21 +146,17 @@ class TaskManager(object):
                     break
             else:
                 break  # 非实时显示模式，直接结束
-            if finished and done_files >= total_files:
+            if msg and done_files >= total_files:
                 break  # 文件秒传、出错 没有大小
-        if now_size >= total_size:
-            result, _ = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
-            output_list[pid] = result
-            if follow:
+        if follow:
+            if now_size >= total_size:
+                output_list[pid] = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
                 output_list.append(f"[{pid}] finished")
-
-        if follow and TaskManager.running:
-            if total_tasks < 1:
-                TaskManager.running = False
-        elif not TaskManager.running:
-            pass
+            if TaskManager.running:
+                if total_tasks < 1:  # 只有还有一个没有完成, 就不能改 TaskManager.running
+                    TaskManager.running = False  # 辅助控制 stop_show_task 线程的结束 🤣
         else:
-            print(result)
+            print(TaskManager._size_to_msg(now_size, total_size, msg, pid, task))
 
     def _show_task_bar(self, pid=None, follow=False):
         """多行更新状态栏"""
