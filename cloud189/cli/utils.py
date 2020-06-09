@@ -248,7 +248,6 @@ def check_update():
         tag_name, msg = resp['tag_name'], resp['body']
     except (requests.RequestException, AttributeError, KeyError) as err:
         error(f"检查更新时发生异常\n{err=}")
-        input()
         return None
     if tag_name:
         ver = version.split('.')
