@@ -159,7 +159,7 @@ class TaskManager(object):
                     break
             else:
                 break  # 非实时显示模式，直接结束
-            if finished:
+            if finished and done_files >= total_files:
                 break  # 文件秒传、出错 没有大小
         if now_size >= total_size:
             result, _ = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
