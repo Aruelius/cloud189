@@ -418,7 +418,7 @@ class Cloud189(object):
                 else:
                     _msg = f"unknown response {resp=}. Please contact the developer!"
                     code = Cloud189.UP_UNKNOWN_ERROR
-                logger.dubug(f'Upload by client [create]: {_msg}')
+                logger.debug(f'Upload by client [create]: {_msg}')
             else:
                 code = Cloud189.NETWORK_ERROR
         except Exception as e:
