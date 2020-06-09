@@ -1035,24 +1035,16 @@ class Cloud189(object):
             'taskId': 'TASK_SIGNIN',
             'activityId': 'ACT_SIGNIN'
         }
-        resp = self._get(url, params=params)
-        if not resp:
-            logger.error("Sign: network error!")
-        resp = resp.json()
-        if 'errorCode' in resp:
-            print(f"今日抽奖(1)次数已用完： {resp['errorCode']}")
-        else:
-            print(resp['prizeName'])
-
-        params.update({'taskId': 'TASK_SIGNIN_PHOTOS'})
-        resp = self._get(url, params=params)
-        if not resp:
-            logger.error("Sign: network error!")
-        resp = resp.json()
-        if 'errorCode' in resp:
-            print(f"今日抽奖(2)次数已用完： {resp['errorCode']}")
-        else:
-            print(resp['prizeName'])
+        for i in range(1, 3):
+            resp = self._get(url, params=params)
+            if not resp:
+                logger.error("Sign: network error!")
+            resp = resp.json()
+            if 'errorCode' in resp:
+                print(f"今日抽奖({i})次数已用完： {resp['errorCode']}")
+            else:
+                print(f"今日抽奖({i})次：{resp['prizeName']}")
+            params.update({'taskId': 'TASK_SIGNIN_PHOTOS'})
 
     def get_user_infos(self):
         """获取登录用户信息"""
