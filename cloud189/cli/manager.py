@@ -22,7 +22,10 @@ def input_with_timeout(timeout, timer=monotonic):
 
         ready, _, _ = select.select([sys.stdin], [], [], timeout)
         if ready:
-            return sys.stdin.readline().rstrip('\n')
+            try:
+                return sys.stdin.readline().rstrip('\n')
+            except OSError:
+                return None
         raise TimeoutExpired
 
     else:  # windos
