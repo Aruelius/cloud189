@@ -27,13 +27,16 @@ class Cloud189(object):
     ID_ERROR = 1
     PASSWORD_ERROR = 2
     LACK_PASSWORD = 3
-    ZIP_ERROR = 4
+    UP_COMMIT_ERROR = 4  # 上传文件 commit 错误
     MKDIR_ERROR = 5
     URL_INVALID = 6
     FILE_CANCELLED = 7
     PATH_ERROR = 8
     NETWORK_ERROR = 9
     CAPTCHA_ERROR = 10
+    UP_CREATE_ERROR = 11  # 创建上传任务出错
+    UP_UNKNOWN_ERROR = 12  # 创建上传任务未知错误
+    UP_EXHAUSTED_ERROR = 13  # 上传量用完
 
     def __init__(self):
         self._session = requests.Session()
@@ -366,9 +369,9 @@ class Cloud189(object):
 
         return file_list, path_list
 
-    def _create_upload_file(self, filepath, folder_id=-11):
-        # for _ in range(MAX_ATTEMPT_NUMBER):
-        code = infos = None
+    def _create_upload_file(self, up_info: UpInfo) -> (int, tuple):
+        """创建上传任务，包含秒传检查，返回状态码、创建信息"""
+        infos = tuple()
         try:
             url = API + "/createUploadFile.action?{SUFFIX_PARAM}"
             date = get_time()
@@ -382,23 +385,22 @@ class Cloud189(object):
                 "Content-Type": "application/x-www-form-urlencoded",
             }
             post_data = {
-                "parentFolderId": folder_id,
+                "parentFolderId": up_info.fid,
                 "baseFileId": "",
-                "fileName": get_file_name(filepath),
-                "size": os.path.getsize(filepath),
-                "md5": get_file_md5(filepath),
+                "fileName": up_info.name,
+                "size": up_info.size,
+                "md5": get_file_md5(up_info.path, up_info.check),
                 "lastWrite": "",
-                "localPath": filepath,
+                "localPath": up_info.path,
                 "opertype": 1,
                 "flag": 1,
                 "resumePolicy": 1,
                 "isLog": 0
             }
-            resp = requests.post(url, headers=headers,
-                                 data=post_data, timeout=10)
+            resp = requests.post(url, headers=headers, data=post_data, timeout=10)
             if resp.json()['res_message'] == "UserDayFlowOverLimited":
-                logger.error(f"Upload by client [create]: {filepath=}, the daily transmission of the current login account has been exhausted!")
-                code = Cloud189.FAILED
+                logger.error(f"Upload by client [create]: {up_info.path=}, the daily transmission of the current login account has been exhausted!")
+                code = Cloud189.UP_EXHAUSTED_ERROR
             elif resp.json().get('uploadFileId'):
                 upload_file_id = resp.json()['uploadFileId']
                 file_upload_url = resp.json()['fileUploadUrl']
@@ -407,17 +409,17 @@ class Cloud189(object):
                 logger.debug(
                     f"Upload by client [create]: successfully created upload task, node {file_upload_url.split('//')[1].split('.')[0]}")
                 code = Cloud189.SUCCESS
-                infos = (upload_file_id, file_upload_url,
-                         file_commit_url, file_data_exists)
+                infos = (upload_file_id, file_upload_url, file_commit_url, file_data_exists)
             else:
                 logger.error(f'Upload by client [create]: unknown response {resp.text=},{resp.json()}, please contact the developer!')
-                code = Cloud189.FAILED
+                code = Cloud189.UP_UNKNOWN_ERROR
         except Exception:
-            code = Cloud189.FAILED
-            traceback.print_exc()
+            code = Cloud189.UP_CREATE_ERROR
+            traceback.print_exc()  # TODO: 可能需要删除
         return code, infos
 
-    def _upload_file_data(self, file_upload_url, upload_file_id, filepath, callback=None):
+    def _upload_file_data(self, file_upload_url, upload_file_id, up_info: UpInfo):
+        """客户端接口上传文件数据"""
         url = f"{file_upload_url}?{SUFFIX_PARAM}"
         date = get_time()
         headers = {
@@ -428,30 +430,29 @@ class Cloud189(object):
             "Signature": calculate_hmac_sign(self._sessionSecret, self._sessionKey, 'PUT', url, date),
             "Accept": "application/json;charset=UTF-8",
             "Content-Type": "application/octet-stream",
-            "Edrive-UploadFileRange": f"0-{os.path.getsize(filepath)}",
+            "Edrive-UploadFileRange": f"0-{up_info.size}",
             "ResumePolicy": "1"
         }
 
         self._upload_finished_flag = False  # 上传完成的标志
 
-        def _call_back(it, chunk_size, total_size):
+        def _call_back(it, chunk_size):
             for chunk_now, item in enumerate(it):
                 yield item
-                if callback is not None:
+                if up_info.callback:
                     now_size = chunk_now * chunk_size
                     if not self._upload_finished_flag:
-                        callback(filepath, total_size, now_size)
-                    if now_size == total_size:
+                        up_info.callback(up_info.path, up_info.size, now_size)
+                    if now_size == up_info.size:
                         self._upload_finished_flag = True
-                    logger.debug(f"Upload by client [data]: {total_size=}, {now_size=}")
-            if callback is not None:  # 保证迭代完后，两者大小一样
-                callback(filepath, total_size, total_size)
+                    logger.debug(f"Upload by client [data]: {up_info.size=}, {now_size=}")
+            if up_info.callback:  # 保证迭代完后，两者大小一样
+                up_info.callback(up_info.path, up_info.size, up_info.size)
 
-        total_size = os.path.getsize(filepath)  # Byte
-        chunk_size = get_chunk_size(total_size)
-        with open(filepath, 'rb') as f:
+        chunk_size = get_chunk_size(up_info.size)
+        with open(up_info.path, 'rb') as f:
             chunks = get_upload_chunks(f, chunk_size)
-            post_data = _call_back(chunks, chunk_size, total_size)
+            post_data = _call_back(chunks, chunk_size)
 
             resp = requests.put(url, data=post_data, headers=headers)
             if resp.text != "":
@@ -462,12 +463,11 @@ class Cloud189(object):
                             f"Upload by client [data]: an error occurred while uploading data {node.findtext('code')},{node.findtext('message')}")
                         return Cloud189.FAILED
             else:
-                logger.debug(f"Upload by client [data]: upload {filepath} success!")
+                logger.debug(f"Upload by client [data]: upload {up_info.path} success!")
                 return Cloud189.SUCCESS
 
     def _upload_client_commit(self, file_commit_url, upload_file_id):
-        '''客户端上传确认'''
-        # for _ in range(MAX_ATTEMPT_NUMBER):
+        """客户端接口上传确认"""
         fid = ''
         try:
             url = f"{file_commit_url}?{SUFFIX_PARAM}"
@@ -500,66 +500,59 @@ class Cloud189(object):
             traceback.print_exc()
         return fid
 
-    def upload_file_by_client(self, file_path, folder_id=-11, callback=None):
-        '''使用客户端接口上传单文件，支持秒传功能'''
-        if not os.path.isfile(file_path):
-            logger.error(f"Upload by client: [{file_path}] is not a file")
-            return UpCode(Cloud189.PATH_ERROR)
-        if callback is not None:
-            callback(file_path, 1, 0, 'check')
-        code, infos = self._create_upload_file(file_path, folder_id)
+    def _upload_file_by_client(self, up_info: UpInfo) -> UpCode:
+        """使用客户端接口上传单文件，支持秒传功能
+        :params up_info: UpInfo
+        :return:         UpCode
+        """
+        if up_info.callback and up_info.check:
+            up_info.callback(up_info.path, 1, 0, 'check')
+        code, infos = self._create_upload_file(up_info)
         if code == Cloud189.SUCCESS:
             upload_file_id, file_upload_url, file_commit_url, file_data_exists = infos
             if file_data_exists == 1:  # 数据存在，进入秒传流程
-                logger.debug(f"Upload by client: [{file_path}] enter the quick_up process...")
-                fid = self._upload_client_commit(
-                    file_commit_url, upload_file_id)
+                logger.debug(f"Upload by client: [{up_info.path}] enter the quick_up process...")
+                fid = self._upload_client_commit(file_commit_url, upload_file_id)
                 if fid:
                     quick_up = True
-                    if callback is not None:  # 用于文件夹上传中的 秒传过程
-                        callback(file_path, 100, 100, 'quick_up')
+                    if up_info.callback:  # 用于文件夹上传中的 秒传过程
+                        up_info.callback(up_info.path, 100, 100, 'quick_up')
                 else:
-                    if callback is not None:
-                        callback(file_path, 1, 0, 'error')
-                    logger.debug(f"Upload by client: [{file_path}] quick_up failed!")
-                    code = Cloud189.FAILED
+                    if up_info.callback:
+                        up_info.callback(up_info.path, 1, 0, 'error')
+                    logger.debug(f"Upload by client: [{up_info.path}] quick_up failed!")
+                    code = Cloud189.UP_COMMIT_ERROR
             else:  # 上传文件数据
-                logger.debug(f"Upload by client: [{file_path}] enter the normal upload process...")
-                code = self._upload_file_data(
-                    file_upload_url, upload_file_id, file_path, callback)
+                logger.debug(f"Upload by client: [{up_info.path}] enter the normal upload process...")
+                code = self._upload_file_data(file_upload_url, upload_file_id, up_info)
                 if code != Cloud189.SUCCESS:
-                    logger.debug(f"Upload by client: [{file_path}] normal upload failed!")
-                    return UpCode(code)
-                fid = self._upload_client_commit(
-                    file_commit_url, upload_file_id)
+                    logger.debug(f"Upload by client: [{up_info.path}] normal upload failed!")
+                    return UpCode(code=code, path=up_info.path)
+                fid = self._upload_client_commit(file_commit_url, upload_file_id)
                 quick_up = False
             logging.debug(f"Upload by client: results {code=}, {fid=}, {quick_up=}")
-            return UpCode(code, fid, quick_up)
+            return UpCode(code=code, id=fid, quick_up=quick_up, path=up_info.path)
         else:
-            return UpCode(code)
+            return UpCode(code=code, path=up_info.path)
 
-    def upload_file_by_web(self, file_path, folder_id=-11, callback=None):
-        '''使用网页接口上传单文件，不支持秒传'''
-        if not os.path.isfile(file_path):
-            logger.error(f"Upload by web: [{file_path}] is not a file")
-            return UpCode(Cloud189.PATH_ERROR)
-
-        # 文件已经存在，则认为已经上传了
-        filename = os.path.basename(file_path)
-
+    def _upload_file_by_web(self, up_info: UpInfo) -> UpCode:
+        """使用网页接口上传单文件，不支持秒传
+        :params up_info: UpInfo
+        :return:         UpCode
+        """
         headers = {'Referer': self._host_url}
         url = self._host_url + "/v2/getUserUploadUrl.action"
         resp = self._get(url, headers=headers)
         if not resp:
-            logger.error(f"Upload by web: [{file_path}] network error(1)!")
-            if callback is not None:
-                callback(file_path, 1, 1, 'error')
-            return UpCode(Cloud189.NETWORK_ERROR)
+            logger.error(f"Upload by web: [{up_info.path}] network error(1)!")
+            if up_info.callback:
+                up_info.callback(up_info.path, 1, 1, 'error')
+            return UpCode(code=Cloud189.NETWORK_ERROR, path=up_info.path)
         resp = resp.json()
         if 'uploadUrl' in resp:
             upload_url = "https:" + resp['uploadUrl']
         else:
-            logger.error(f"Upload by web: [{file_path}] failed to obtain upload node!")
+            logger.error(f"Upload by web: [{up_info.path}] failed to obtain upload node!")
             upload_url = ''
 
         self._session.headers["Referer"] = self._host_url  # 放到 headers？
@@ -568,63 +561,89 @@ class Cloud189(object):
         url = self._host_url + "/main.action"
         resp = self._get(url, headers=headers)
         if not resp:
-            logger.error(f"Upload by web: [{file_path}] network error(2)!")
-            if callback is not None:
-                callback(file_path, 1, 1, 'error')
-            return UpCode(Cloud189.NETWORK_ERROR)
+            logger.error(f"Upload by web: [{up_info.path}] network error(2)!")
+            if up_info.callback:
+                up_info.callback(up_info.path, 1, 1, 'error')
+            return UpCode(code=Cloud189.NETWORK_ERROR, path=up_info.path)
         sessionKey = re.findall(r"sessionKey = '(.+?)'", resp.text)[0]
 
-        file = open(file_path, 'rb')
-        post_data = {
-            "parentId": str(folder_id),
-            "fname": filename,
-            "sessionKey": sessionKey,
-            "albumId": "undefined",
-            "opertype": "1",
-            "upload_file": (filename, file, 'application/octet-stream')
-        }
-        post_data = MultipartEncoder(post_data)
-        headers = {"Content-Type": post_data.content_type}
-        self._upload_finished_flag = False  # 上传完成的标志
-
         def _call_back(read_monitor):
-            if callback is not None:
+            if up_info.callback:
                 if not self._upload_finished_flag:
-                    callback(filename, read_monitor.len,
-                             read_monitor.bytes_read)
+                    up_info.callback(up_info.path, read_monitor.len, read_monitor.bytes_read)
                 if read_monitor.len == read_monitor.bytes_read:
                     self._upload_finished_flag = True
 
-        monitor = MultipartEncoderMonitor(post_data, _call_back)
-        result = self._post(upload_url, data=monitor,
-                            headers=headers, timeout=None)
-        if not result:  # 网络异常
-            logger.error(f"Upload by web: [{file_path}] network error(3)!")
-            if callback is not None:
-                callback(file_path, 1, 1, 'error')
-            return UpCode(Cloud189.NETWORK_ERROR)
-        else:
-            result = result.json()
-        if 'id' not in result:
-            logger.error(f"Upload by web: [{file_path}] failed, {result=}")
-            if callback is not None:
-                callback(file_path, 1, 1, 'error')
-            return UpCode(Cloud189.FAILED)  # 上传失败
+        with open(up_info.path, 'rb') as file_:
+            post_data = MultipartEncoder({
+                "parentId": up_info.fid,
+                "fname": up_info.name,
+                "sessionKey": sessionKey,
+                "albumId": "undefined",
+                "opertype": "1",
+                "upload_file": (up_info.name, file_, 'application/octet-stream')
+            })
+            headers = {"Content-Type": post_data.content_type}
+            self._upload_finished_flag = False  # 上传完成的标志
 
-        if callback is not None:
-            callback(file_path, 1, 1)  # 更新上传状态
-        return UpCode(Cloud189.SUCCESS, result['id'])  # 返回 id
+            monitor = MultipartEncoderMonitor(post_data, _call_back)
+            result = self._post(upload_url, data=monitor, headers=headers, timeout=None)
+            if not result:  # 网络异常
+                logger.error(f"Upload by web: [{up_info.path}] network error(3)!")
+                if up_info.callback:
+                    up_info.callback(up_info.path, 1, 1, 'error')
+                return UpCode(code=Cloud189.NETWORK_ERROR, path=up_info.path)
+            else:
+                result = result.json()
+            if 'id' not in result:
+                logger.error(f"Upload by web: [{up_info.path}] failed, {result=}")
+                if up_info.callback:
+                    up_info.callback(up_info.path, 1, 1, 'error')
+                return UpCode(code=Cloud189.FAILED, path=up_info.path)  # 上传失败
 
-    def upload_file(self, file_path, folder_id=-11, callback=None):
-        if self._sessionKey and self._sessionSecret and self._accessToken:
+        if up_info.callback:
+            up_info.callback(up_info.path, up_info.size, up_info.size)  # 更新上传状态
+        return UpCode(code=Cloud189.SUCCESS, id=result['id'], path=up_info.path)
+
+    def _check_up_file_exist(self, up_info: UpInfo) -> UpInfo:
+        """检查文件是否已经存在"""
+        if not up_info.force:
+            files_info, _ = self.get_file_list(up_info.fid)
+            for file_info in files_info:
+                if up_info.name == file_info.name and up_info.size == file_info.size:
+                    logger.debug(f"Check file exist: {up_info.path} already exist! {file_info.id}")
+                    up_info = up_info._replace(id=file_info.id, exist=True)
+                    break
+        return up_info
+
+    def upload_file(self, file_path, folder_id=-11, callback=None, force=False) -> UpCode:
+        """上传单个文件接口"""
+        if not os.path.isfile(file_path):
+            logger.error(f"Upload file: [{file_path}] is not a file!")
+            return UpCode(code=Cloud189.PATH_ERROR, path=file_path)
+
+        file_name = os.path.basename(file_path)
+        file_size = os.path.getsize(file_path)  # Byte
+        up_info = self._check_up_file_exist(UpInfo(name=file_name, path=file_path, size=file_size,
+                                                   fid=str(folder_id), force=force, callback=callback))
+        if not force and up_info.exist:
+            logging.debug(f"Abandon upload because the file is already exist: {file_path=}")
+            if up_info.callback:
+                up_info.callback(up_info.path, 1, 1, 'exist')
+            return UpCode(code=Cloud189.SUCCESS, id=up_info.id, path=file_path)
+        elif self._sessionKey and self._sessionSecret and self._accessToken:
             logging.debug(f"Use the client interface to upload files: {file_path=}, {folder_id=}")
-            return self.upload_file_by_client(file_path, folder_id, callback)
+            return self._upload_file_by_client(up_info)
         else:
             logging.debug(f"Use the web interface to upload files: {file_path=}, {folder_id=}")
-            return self.upload_file_by_web(file_path, folder_id, callback)
+            return self._upload_file_by_web(up_info)
 
-    def upload_dir(self, folder_path, parrent_fid=-11, callback=None):
-        '''上传文件夹'''
+    def upload_dir(self, folder_path, parrent_fid=-11, callback=None, force=False, mkdir=True):
+        """上传文件夹接口
+        :params force: 强制上传已经存在的文件(文件名、大小一致的文件)
+        :params mkdir: 是否在 parrent_fid 创建父文件夹
+        :return:       UpCode list  or  Cloud189 error code(mkdir error)
+        """
         if not os.path.isdir(folder_path):
             logger.error(f"Upload dir: [{folder_path}] is not a file")
             return UpCode(Cloud189.PATH_ERROR)
@@ -633,11 +652,15 @@ class Cloud189(object):
         logger.debug(f'Upload dir: start parsing {folder_path=} structure...')
         upload_files = []
         folder_name = get_file_name(folder_path)
-        result = self.mkdir(parrent_fid, folder_name)
-        if result.code != Cloud189.SUCCESS:
-            return result.code
+        if mkdir:
+            result = self.mkdir(parrent_fid, folder_name)
+            if result.code != Cloud189.SUCCESS:
+                return result.code
 
-        dir_dict[folder_name] = result.id
+            dir_dict[folder_name] = result.id
+        else:
+            dir_dict[folder_name] = parrent_fid
+
         for home, dirs, files in os.walk(folder_path):
             for _file in files:
                 f_path = home + os.sep + _file
@@ -656,16 +679,16 @@ class Cloud189(object):
                 if result.code != Cloud189.SUCCESS:
                     logger.error(
                         f"Upload dir: create a folder in the upload sub folder{dir_rname=} failed! {folder_name=}, {dir_dict[p_rfolder]=}")
-                    return Cloud189.FAILED
+                    return result.code
                 logger.debug(
                     f"Upload dir: folder successfully created {folder_name=}, {dir_dict[p_rfolder]=}, {dir_rname=}, {result.id}")
                 dir_dict[dir_rname] = result.id
-        results = []
+        up_codes = []
         for upload_file in upload_files:
             logger.debug(f"Upload dir: file [{upload_file[0]}] enter upload process...")
-            res = self.upload_file(upload_file[0], upload_file[1], callback)
-            results.append(UpCode(res.code, res.id, res.quick_up, upload_file))
-        return results
+            up_code = self.upload_file(upload_file[0], upload_file[1], callback, force)
+            up_codes.append(up_code)
+        return up_codes
 
     def get_file_info_by_id(self, fid) -> (int, FileInfo):
         '''获取文件(夹) 详细信息'''
@@ -796,29 +819,9 @@ class Cloud189(object):
             return code
 
         return self._batch_task(infos, 'COPY')
-        '''
-        taskInfo = {"fileId": infos["fileId"],
-                    "srcParentId": infos["parentId"],
-                    "fileName": infos["fileName"],
-                    "isFolder": 1 if infos["isfolder"] else 0 }
-
-        url = self._host_url + "/createBatchTask.action"
-        post_data = { "type": "COPY", "taskInfos": json.dumps([taskInfo,])}
-
-        resp = self._post(url, data=post_data)
-        if resp.text:
-            post_data = { "type": "COPY", "taskId": resp.text}
-            resp = self._post(url, data=post_data)
-            if resp:
-                resp = resp.json()
-                print(resp['taskStatus'])  # 4
-
-        else:
-            return Cloud189.NETWORK_ERROR
-        '''
 
     def mkdir(self, parent_id, fname):
-        '''新建文件夹'''
+        '''新建文件夹, 如果存在该文件夹，会返回存在的文件夹 id'''
         url = self._host_url + '/v2/createFolder.action'
         result = self._get(
             url, params={'parentId': str(parent_id), 'fileName': fname})
@@ -827,11 +830,10 @@ class Cloud189(object):
             return MkCode(Cloud189.NETWORK_ERROR)
         result = result.json()
         if 'fileId' in result:
-            fid = result['fileId']
-            return MkCode(Cloud189.SUCCESS, fid)
+            return MkCode(Cloud189.SUCCESS, result['fileId'])
         else:
             logging.error(f"Mkdir: unknown error {result=}")
-            return MkCode(Cloud189.FAILED)
+            return MkCode(Cloud189.MKDIR_ERROR)
 
     def rename(self, fid, fname):
         ''''重命名文件(夹)'''

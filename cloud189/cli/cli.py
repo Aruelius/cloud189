@@ -55,11 +55,9 @@ class Commander:
             config.work_id = self._work_id
             exit_cmd(0)
 
-    def exit(self):
-        self.bye()
-
     def rmode(self):
         """适用于屏幕阅读器用户的显示方式"""
+        # TODO
         choice = input("以适宜屏幕阅读器的方式显示(y): ")
         if choice and choice.lower() == 'y':
             config.reader_mode = True
@@ -212,11 +210,6 @@ class Commander:
             self.refresh(config.work_id)
         else:
             error("切换用户失败!")
-
-    def ll(self, args):
-        """列出文件(夹)，详细模式"""
-        self.ls(['-l', *args])
-        self.refresh() if choice([0, 1, 0]) else None  # 1/3 概率刷新
 
     def ls(self, args):
         """列出文件(夹)"""
@@ -448,9 +441,11 @@ class Commander:
             info('参数：文件路径')
         task_flag = False
         follow = False
+        force = False
+        mkdir = True
         for arg in args:
-            if arg == '-f':
-                follow = True
+            follow, force, mkdir, match = parsing_up_params(arg, follow, force, mkdir)
+            if match:
                 args.remove(arg)
         for path in args:
             path = path.strip('\"\' ')  # 去除直接拖文件到窗口产生的引号
@@ -459,9 +454,9 @@ class Commander:
                 continue
             uploader = Uploader(self._disk)
             if os.path.isfile(path):
-                uploader.set_upload_path(path, is_file=True)
+                uploader.set_upload_path(path, is_file=True, force=force)
             else:
-                uploader.set_upload_path(path, is_file=False)
+                uploader.set_upload_path(path, is_file=False, force=force, mkdir=mkdir)
             uploader.set_target(self._work_id, self._work_name)
             self._task_mgr.add_task(uploader)
             task_flag = True
@@ -529,7 +524,7 @@ class Commander:
             self._disk.user_sign()
 
     def who(self):
-        """打印当前登录账户信息"""
+        """打印当前登录账户信息，没有错误则返回用户名"""
         user = self._disk.get_user_infos()
         if not user:
             error("发生未知错误！")
@@ -552,9 +547,6 @@ class Commander:
             print(f"个人主页: https://cloud.189.cn/u/{user.domain}")
         return user.account.replace('@189.cn', '')
 
-    def quota(self):
-        self.who()
-
     def setpath(self):
         """设置下载路径"""
         print(f"当前下载路径 : {config.save_path}")
@@ -564,18 +556,35 @@ class Commander:
         else:
             error('路径非法,取消修改')
 
-    def setdelay(self):
-        """设置大文件上传延时"""
-        pass
-        # print("大文件数据块上传延时范围(秒), 如: 0 60")
-        # print(f"当前配置: {config.upload_delay}")
-        # tr = input("请输入延时范围: ").split()
-        # if len(tr) != 2:
-        #     error("格式有误!")
-        #     return None
-        # tr = (int(tr[0]), int(tr[1]))
-        # self._disk.set_upload_delay(tr)
-        # config.upload_delay = tr
+    def ll(self, args):
+        """列出文件(夹)，详细模式"""
+        if choice((0, 1, 0)):  # 1/3 概率刷新
+            self.refresh()
+        self.ls(['-l', *args])
+
+    def quota(self):
+        self.who()
+
+    def exit(self):
+        self.bye()
+
+    def b(self):
+        self.bye()
+
+    def r(self):
+        self.refresh()
+
+    def c(self):
+        self.clear()
+
+    def j(self, args):
+        self.jobs(args)
+
+    def u(self, args):
+        self.upload(args)
+
+    def d(self, args):
+        self.down(args)
 
     def run_one(self, cmd, args):
         """运行单任务入口"""
@@ -596,10 +605,10 @@ class Commander:
 
     def run(self):
         """处理交互模式用户命令"""
-        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help',
+        no_arg_cmd = ['bye', 'exit', 'cdrec', 'clear', 'clogin', 'help', 'r', 'c', 'b',
                       'refresh', 'rmode', 'setpath', 'update', 'who', 'quota']
         cmd_with_arg = ['ls', 'll', 'cd', 'down', 'jobs', 'shared', 'su', 'login', 'logout',
-                        'mkdir', 'mv', 'rename', 'rm', 'share', 'upload', 'sign']
+                        'mkdir', 'mv', 'rename', 'rm', 'share', 'upload', 'sign', 'j', 'u', 'd']
 
         choice_list = [handle_name(i)
                        for i in self._file_list.all_name]  # 引号包裹空格文件名

@@ -115,16 +115,19 @@ def get_time(stamp=False):
         return datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
 
 
-def get_file_md5(file_path):
-    _md5 = hashlib.md5()
-    with open(file_path, 'rb') as f:
-        while True:
-            data = f.read(64 * 1024)
-            if not data:
-                break
-            _md5.update(data)
-        hash_md5 = _md5.hexdigest()
-    return hash_md5.upper()
+def get_file_md5(file_path, check=True):
+    if check:
+        _md5 = hashlib.md5()
+        with open(file_path, 'rb') as f:
+            while True:
+                data = f.read(64 * 1024)
+                if not data:
+                    break
+                _md5.update(data)
+            hash_md5 = _md5.hexdigest()
+        return hash_md5.upper()
+    else:
+        return 'random_md5_value'  # TODO: 这里需要返回一个值
 
 
 def get_file_size(file_path):

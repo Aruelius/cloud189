@@ -159,6 +159,8 @@ class Uploader(Thread):
         self._disk = disk
         self._pid = -1
         self._up_path = None
+        self._force = False
+        self._mkdir = True
         self._up_type = None
         self._folder_id = -11
         self._folder_name = ''
@@ -197,9 +199,11 @@ class Uploader(Thread):
     def get_err_msg(self) -> list:
         return self._err_msg
 
-    def set_upload_path(self, path, is_file=True):
+    def set_upload_path(self, path, is_file=True, force=False, mkdir=True):
         """设置上传路径信息"""
         self._up_path = path
+        self._force = force
+        self._mkdir = mkdir
         self._up_type = UploadType.FILE if is_file else UploadType.FOLDER
 
     def set_target(self, folder_id=-1, folder_name=''):
@@ -218,14 +222,6 @@ class Uploader(Thread):
         """文件下载失败时的回调函数"""
         self._error_msg(f"上传失败: {why_error(code)} -> {filename}")
 
-    def _set_pwd(self, fid, is_file):
-        """上传完成自动设置提取码"""
-        pass
-        # if is_file:
-        #     self._disk.set_passwd(fid, self._default_file_pwd, is_file=True)
-        # else:
-        #     self._disk.set_passwd(fid, self._default_dir_pwd, is_file=False)
-
     def _set_dir_files_number(self, folder_path):
         """获取文件夹所有文件数量"""
         count = 0
@@ -235,17 +231,17 @@ class Uploader(Thread):
 
     def run(self) -> None:
         if self._up_type == UploadType.FILE:
-            info = self._disk.upload_file(self._up_path, self._folder_id, callback=self._show_progress)
+            info = self._disk.upload_file(self._up_path, self._folder_id, callback=self._show_progress, force=self._force)
             if info.code != Cloud189.SUCCESS:
                 self._error_msg(f"文件上传失info败: {why_error(info.code)} -> {self._up_path}")
 
         elif self._up_type == UploadType.FOLDER:
             self._set_dir_files_number(self._up_path)
-            infos = self._disk.upload_dir(self._up_path, self._folder_id, callback=self._show_progress)
-            # , failed_callback=self._show_upload_failed)
+            infos = self._disk.upload_dir(self._up_path, self._folder_id, callback=self._show_progress,
+                                          force=self._force, mkdir=self._mkdir)
             if isinstance(infos, list):
                 for info in infos:
                     if info.code != Cloud189.SUCCESS:
-                        self._error_msg(f"文件夹中 {info.name} 上传失败: {why_error(info.code)}")
-            else:  # 进入单文件上传之前就已经出错
+                        self._error_msg(f"文件夹中 {info.path} 上传失败: {why_error(info.code)}")
+            else:  # 进入单文件上传之前就已经出错(创建文件夹失败！)
                 self._error_msg(f"文件夹上传失败: {why_error(infos.code)} -> {self._up_path}")

@@ -107,6 +107,39 @@ def text_align(text, length) -> str:
     space = length - text_len
     return text + ' ' * space
 
+def parsing_up_params(arg: str, follow, force, mkdir) -> (bool, bool, bool, bool):
+    """解析文件上传参数
+    :params arg: 解析参数 str
+    :params follow: bool 实时任务
+    :params force: bool 强制上传
+    :params mkdir: bool 不创建父文件夹
+    :return: follow, force, mkdir, match(标识是否需要删除 arg)
+    """
+    match = False
+    if len(arg) > 1:
+        if arg.startswith('--'):
+            if arg == '--follow':  # 实时任务
+                follow = True
+                match = True
+            elif arg == '--force':  # 强制上传
+                force = True
+                match = True
+            elif arg == '--nodir':  # 不创建父文件夹
+                mkdir = False
+                match = True
+        elif arg.startswith('-'):
+            for i in arg[1:]:
+                if i == 'f':  # 实时任务
+                    follow = True
+                    match = True
+                elif i == 'F':  # 强制上传
+                    force = True
+                    match = True
+                elif i == 'n':  # 不创建父文件夹
+                    mkdir = False
+                    match = True
+    return follow, force, mkdir, match
+
 
 def handle_name(name: str) -> str:
     """使用引号包裹有空格的文件名"""

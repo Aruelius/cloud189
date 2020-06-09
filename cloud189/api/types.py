@@ -5,7 +5,7 @@ API 处理后返回的数据类型
 from collections import namedtuple
 
 
-__all__ = ['FileInfo', 'RecInfo', 'PathInfo', 'UpCode', 'MkCode',
+__all__ = ['FileInfo', 'RecInfo', 'PathInfo', 'UpCode', 'MkCode', 'UpInfo',
            'ShareCode', 'FolderTree', 'ShareInfo', 'UserInfo']
 
 
@@ -22,7 +22,7 @@ RecInfo = namedtuple('RecInfo', _rec_info, defaults=('',) * len(_rec_info))
 # 文件路径
 PathInfo = namedtuple('PathInfo', ['name', 'id', 'isCoShare'])
 
-UpCode = namedtuple('UpCode', ['code', 'id', 'quick_up', 'name'], defaults=(0, '', False, ''))
+UpCode = namedtuple('UpCode', ['code', 'id', 'quick_up', 'path'], defaults=(0, '', False, ''))
 MkCode = namedtuple('MkCode', ['code', 'id'], defaults=(0, ''))
 ShareCode = namedtuple('ShareCode', ['code', 'url', 'pwd', 'et'], defaults=(0, '', '', ''))
 
@@ -31,3 +31,6 @@ FolderTree = namedtuple('FolderTree', ['name', 'id', 'pid', 'isParent'], default
 ShareInfo = namedtuple('ShareInfo', _share_info, defaults=('',) * len(_share_info))
 UserInfo = namedtuple('UserInfo', ['id', 'account', 'nickname', 'used', 'quota', 'vip', 'endTime',
                                    'beginTime', 'domain'], defaults=('',) * 9)
+
+UpInfo = namedtuple('UpInfo', ['name', 'path', 'id', 'fid', 'size', 'force', 'exist', 'check', 'callback'],
+                    defaults=('', '', '', '-11', 0, False, False, True, None))
