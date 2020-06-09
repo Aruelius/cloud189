@@ -151,7 +151,13 @@ class TaskManager(object):
         if follow:
             if now_size >= total_size:
                 output_list[pid] = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
-                output_list.append(f"[{pid}] finished")
+                while True:
+                    if not task.is_alive():
+                        output_list.append(f"[{pid}] finished")
+                        for err_msg in task.get_err_msg():
+                            output_list.append(f"[{pid}] Error Messages: {err_msg}")
+                        break
+                    sleep(1)
             if TaskManager.running:
                 if total_tasks < 1:  # 只有还有一个没有完成, 就不能改 TaskManager.running
                     TaskManager.running = False  # 辅助控制 stop_show_task 线程的结束 🤣

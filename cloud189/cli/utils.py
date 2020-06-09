@@ -58,12 +58,18 @@ def why_error(code):
         return '提取码错误'
     elif code == Cloud189.FILE_CANCELLED:
         return '分享链接已失效'
-    elif code == Cloud189.ZIP_ERROR:
-        return '解压过程异常'
     elif code == Cloud189.NETWORK_ERROR:
         return '网络连接异常'
     elif code == Cloud189.CAPTCHA_ERROR:
         return '验证码错误'
+    elif code == Cloud189.UP_COMMIT_ERROR:
+        return '上传文件 commit 错误'
+    elif code == Cloud189.UP_CREATE_ERROR:
+        return '创建上传任务出错'
+    elif code == Cloud189.UP_EXHAUSTED_ERROR:
+        return '今日上传量已用完'
+    elif code == Cloud189.UP_ILLEGAL_ERROR:
+        return '文件非法'
     else:
         return '未知错误'
 

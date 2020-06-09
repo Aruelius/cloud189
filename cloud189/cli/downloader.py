@@ -219,7 +219,7 @@ class Uploader(Thread):
         self._msg = msg
 
     def _show_upload_failed(self, code, filename):
-        """文件下载失败时的回调函数"""
+        """文件上传失败时的回调函数"""
         self._error_msg(f"上传失败: {why_error(code)} -> {filename}")
 
     def _set_dir_files_number(self, folder_path):
