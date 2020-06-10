@@ -1,6 +1,6 @@
-import os
 from enum import Enum
 from threading import Thread
+from os import sep as os_sep
 
 from cloud189.api import Cloud189
 from cloud189.cli import config
@@ -133,13 +133,13 @@ class Downloader(Thread):
                 self._error_msg(f"文件夹下载失败: {why_error(code)} -> {self._down_args}")
 
         elif self._down_type == DownType.FILE_ID:
-            save_path = self._save_path + os.sep + self._f_path
+            save_path = self._save_path + os_sep + self._f_path
             code = self._disk.down_file_by_id(self._down_args, save_path, self._show_progress)
             if code != Cloud189.SUCCESS:
                 self._error_msg(f"文件下载失败: {why_error(code)} -> {self._f_path}")
 
         elif self._down_type == DownType.FOLDER_ID:
-            save_path = self._save_path + os.sep + self._f_path + os.sep + self._f_name
+            save_path = self._save_path + os_sep + self._f_path + os_sep + self._f_name
             code = self._disk.down_dirzip_by_id(self._down_args, save_path, callback=self._show_progress)
             if code != Cloud189.SUCCESS:
                 self._error_msg(f"文件夹下载失败: {why_error(code)} -> {self._f_path} ")
@@ -160,18 +160,16 @@ class Uploader(Thread):
         self._pid = -1
         self._up_path = None
         self._force = False
-        self._mkdir = True
         self._up_type = None
         self._folder_id = -11
         self._folder_name = ''
         self._msg = ''
         self._now_size = 0
         self._total_size = 1
-        self._total_files = 0
-        self._all_file_names = []
+        self._mkdir = True  # for dir upload
+        self._done_files = 0  # for dir upload
+        self._total_files = 0  # for dir upload
         self._err_msg = []
-        # self._default_file_pwd = config.default_file_pwd
-        # self._default_dir_pwd = config.default_dir_pwd
 
     def _error_msg(self, msg):
         self._err_msg.append(msg)
@@ -189,9 +187,8 @@ class Uploader(Thread):
         return self._now_size, self._total_size, self._msg
 
     def get_count(self) -> (int, int):
-        """文件夹当前第几个文件"""
-        done_files = len(self._all_file_names) if self._total_files >= 1 else 1
-        return done_files, self._total_files
+        """文件夹当前文件数量信息"""
+        return self._done_files, self._total_files
 
     def get_cmd_info(self):
         return self._up_path, self._folder_name
@@ -212,8 +209,6 @@ class Uploader(Thread):
         self._folder_name = folder_name
 
     def _show_progress(self, file_name, total_size, now_size, msg=''):
-        if file_name not in self._all_file_names:
-            self._all_file_names.append(file_name)
         self._total_size = total_size
         self._now_size = now_size
         self._msg = msg
@@ -222,26 +217,20 @@ class Uploader(Thread):
         """文件上传失败时的回调函数"""
         self._error_msg(f"上传失败: {why_error(code)} -> {filename}")
 
-    def _set_dir_files_number(self, folder_path):
-        """获取文件夹所有文件数量"""
-        count = 0
-        for _, _, files in os.walk(folder_path):
-            count += len(files)
-        self._total_files = count
+    def _set_dir_count(self, done_files, total_files):
+        """文件夹中文件数量"""
+        self._done_files = done_files
+        self._total_files = total_files
 
     def run(self) -> None:
         if self._up_type == UploadType.FILE:
             info = self._disk.upload_file(self._up_path, self._folder_id, callback=self._show_progress, force=self._force)
             if info.code != Cloud189.SUCCESS:
-                self._error_msg(f"文件上传失info败: {why_error(info.code)} -> {self._up_path}")
+                self._error_msg(f"上传失败: {why_error(info.code)} -> {self._up_path}")
 
         elif self._up_type == UploadType.FOLDER:
-            self._set_dir_files_number(self._up_path)
-            infos = self._disk.upload_dir(self._up_path, self._folder_id, callback=self._show_progress,
-                                          force=self._force, mkdir=self._mkdir)
-            if isinstance(infos, list):
-                for info in infos:
-                    if info.code != Cloud189.SUCCESS:
-                        self._error_msg(f"文件夹中 {info.path} 上传失败: {why_error(info.code)}")
-            else:  # 进入单文件上传之前就已经出错(创建文件夹失败！)
+            infos = self._disk.upload_dir(self._up_path, self._folder_id, self._force, self._mkdir,
+                                          callback=self._show_progress, failed_callback=self._show_upload_failed,
+                                          up_handler=self._set_dir_count)
+            if not isinstance(infos, list):  # 进入单文件上传之前就已经出错(创建文件夹失败！) UpCode or MkCode
                 self._error_msg(f"文件夹上传失败: {why_error(infos.code)} -> {self._up_path}")

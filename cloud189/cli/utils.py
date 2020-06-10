@@ -9,6 +9,9 @@ import requests
 from cloud189.api import Cloud189
 from cloud189.cli import version
 
+__all__ = ['error', 'info', 'clear_screen', 'get_file_size_str', 'parsing_up_params',
+           'check_update', 'handle_name', 'handle_args', 'captcha_handler',
+           'set_completer', 'print_help', 'check_update']
 
 GIT_REPO = "Aruelius/cloud189"
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -131,12 +134,13 @@ def text_align(text, length) -> str:
     space = length - text_len
     return text + ' ' * space
 
+
 def parsing_up_params(arg: str, follow, force, mkdir) -> (bool, bool, bool, bool):
     """解析文件上传参数
-    :params arg: 解析参数 str
-    :params follow: bool 实时任务
-    :params force: bool 强制上传
-    :params mkdir: bool 不创建父文件夹
+    :param str arg: 解析参数
+    :param bool follow: 实时任务
+    :param bool force: 强制上传
+    :param bool mkdir: 不创建父文件夹
     :return: follow, force, mkdir, match(标识是否需要删除 arg)
     """
     match = False
@@ -258,12 +262,12 @@ def print_help():
     help        显示本信息
     update      检查更新
     *rmode      屏幕阅读器模式
-    refresh     强制刷新文件列表
+    refresh/r   强制刷新文件列表
     login       使用账号密码登录网盘/添加用户
     clogin      使用 Cookie 登录网盘/添加用户
+    *logout     删除当前用户 Cookie/删除指定用户
     su          列出、切换账户
-    *logout     注销当前账号
-    jobs        查看后台任务列表
+    jobs/j      查看后台任务列表
     ls          列出文件(夹)，仅文件名
     ll          列出文件(夹)，详细
     cd          切换工作目录
@@ -278,12 +282,13 @@ def print_help():
     mkdir       创建新文件夹
     share       显示文件(夹)分享信息
     shared      显示已经分享的文件(夹)信息
-    clear       清空屏幕
-    upload      上传文件(夹)
-    down        下载文件、提取分享链接直链 # TODO: 下载文件夹
+    clear/c     清空屏幕
+    upload/u    上传文件(夹)
+    down/d      下载文件、提取分享链接直链 # TODO: 下载文件夹
     setpath     设置文件下载路径
     who/quota   查看当前账户信息
-    bye/exit    退出本程序
+    sign        签到+抽奖
+    bye/exit/b  退出本程序
 
     * 表示目前版本无法使用。
     更详细的介绍请参考本项目的 Github 主页:

@@ -4,18 +4,19 @@ from time import sleep, monotonic
 from cloud189.cli.downloader import TaskType
 from cloud189.cli.utils import info, error, get_file_size_str, OS_NAME, get_upload_status
 from cloud189.cli.reprint import output  # 修改了 magic_char
+from cloud189.api.utils import logger
 
 __all__ = ['global_task_mgr']
 
-output_list = output()
-total_tasks = 0
+OUTPUT_LIST = output()
+TOTAL_TASKS = 0
 
 
 class TimeoutExpired(Exception):
     pass
 
 
-def input_with_timeout(timeout, timer=monotonic):
+def input_with_timeout(timeout=2):
     if OS_NAME == 'posix':  # *nix
         import select
         import sys
@@ -28,12 +29,12 @@ def input_with_timeout(timeout, timer=monotonic):
                 return None
         raise TimeoutExpired
 
-    else:  # windos
+    else:  # windows
         import msvcrt
 
-        endtime = timer() + timeout
+        endtime = monotonic() + timeout
         result = []
-        while timer() < endtime:
+        while monotonic() < endtime:
             if msvcrt.kbhit():
                 result.append(msvcrt.getwche())
                 if result[-1] == '\n' or result[-1] == '\r':
@@ -116,63 +117,62 @@ class TaskManager(object):
     @staticmethod
     def _show_task(pid, task, follow=False):
         TaskManager.running = True  # 相当于每次执行 jobs -f 都初始化
-        # total_tasks 用于标记还没完成的任务数量
-        global output_list, total_tasks
+        # TOTAL_TASKS 用于标记还没完成的任务数量
+        global OUTPUT_LIST, TOTAL_TASKS
 
         def stop_show_task():
             """停止显示任务状态"""
             stop_signal = None
-            while TaskManager.running or total_tasks > 0:
+            while TaskManager.running or TOTAL_TASKS > 0:
                 try:
-                    stop_signal = input_with_timeout(3)
-                except TimeoutExpired:
-                    pass
+                    stop_signal = input_with_timeout(2)
+                except (TimeoutExpired, OSError):
+                    sleep(0.5)
                 else:
                     if stop_signal:
                         TaskManager.running = False
+                        logger.debug(f"Stop_show_task break by User! {stop_signal=}, {TOTAL_TASKS=}")
                         break
+            logger.debug(f"Stop_show_task Exit! {TaskManager.running=}, {TOTAL_TASKS=}")
 
         if follow: Thread(target=stop_show_task).start()
         now_size, total_size, msg = task.get_process()
         done_files, total_files = task.get_count()
-        while  total_size == -1 or now_size < total_size or done_files < total_files:
+        while  total_size == -1 or now_size < total_size or done_files <= total_files:
             if not TaskManager.running:
                 break  # 用户中断
-            result = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
             if follow:
-                output_list[pid] = result
-                sleep(1)
                 now_size, total_size, msg = task.get_process()
                 done_files, total_files = task.get_count()
-                if now_size >= total_size and done_files >= total_files:
-                    total_tasks -= 1
+                OUTPUT_LIST[pid] = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
+                # 文件秒传、出错 没有大小
+                if (msg or now_size >= total_size) and done_files >= total_files:
+                    TOTAL_TASKS -= 1
+                    logger.debug(f"While Loop Break! {done_files=}, {total_files=}")
+                    while True:
+                        if not task.is_alive():
+                            OUTPUT_LIST.append(f"[{pid}] finished")
+                            for err_msg in task.get_err_msg():
+                                OUTPUT_LIST.append(f"[{pid}] Error Messages: {err_msg}")
+                            break
+                        sleep(1)
+                    logger.debug(f"{pid=} TaskManager: {TOTAL_TASKS=}")
+                    # 只有还有一个没有完成, 就不能改 TaskManager.running
+                    if TaskManager.running and TOTAL_TASKS < 1:
+                        TaskManager.running = False  # 辅助控制 stop_show_task 线程的结束 🤣
+                        logger.debug(f"{pid=} TaskManager changed running value to False")
                     break
+                sleep(1)
             else:
+                print(TaskManager._size_to_msg(now_size, total_size, msg, pid, task))
                 break  # 非实时显示模式，直接结束
-            if msg and done_files >= total_files:
-                break  # 文件秒传、出错 没有大小
-        if follow:
-            if now_size >= total_size:
-                output_list[pid] = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
-                while True:
-                    if not task.is_alive():
-                        output_list.append(f"[{pid}] finished")
-                        for err_msg in task.get_err_msg():
-                            output_list.append(f"[{pid}] Error Messages: {err_msg}")
-                        break
-                    sleep(1)
-            if TaskManager.running:
-                if total_tasks < 1:  # 只有还有一个没有完成, 就不能改 TaskManager.running
-                    TaskManager.running = False  # 辅助控制 stop_show_task 线程的结束 🤣
-        else:
-            print(TaskManager._size_to_msg(now_size, total_size, msg, pid, task))
 
     def _show_task_bar(self, pid=None, follow=False):
         """多行更新状态栏"""
-        global output_list, total_tasks
-        with output(output_type="list", initial_len=len(self._tasks), interval=0) as output_list:
+        global OUTPUT_LIST, TOTAL_TASKS
+        with output(output_type="list", initial_len=len(self._tasks), interval=0) as OUTPUT_LIST:
             pool = []
-            total_tasks = len(self)
+            TOTAL_TASKS = len(self)
             for _pid, task in enumerate(self._tasks):
                 if pid is not None and _pid != pid:  # 如果指定了 pid 就只更新 pid 这个 task
                     continue

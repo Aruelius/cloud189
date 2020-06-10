@@ -1,3 +1,4 @@
+import os
 from time import sleep
 from getpass import getpass
 from random import choice
@@ -610,8 +611,7 @@ class Commander:
         cmd_with_arg = ['ls', 'll', 'cd', 'down', 'jobs', 'shared', 'su', 'login', 'logout',
                         'mkdir', 'mv', 'rename', 'rm', 'share', 'upload', 'sign', 'j', 'u', 'd']
 
-        choice_list = [handle_name(i)
-                       for i in self._file_list.all_name]  # 引号包裹空格文件名
+        choice_list = [handle_name(i) for i in self._file_list.all_name]  # 引号包裹空格文件名
         cmd_list = no_arg_cmd + cmd_with_arg
         set_completer(choice_list, cmd_list=cmd_list)
 

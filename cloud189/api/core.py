@@ -453,7 +453,6 @@ class Cloud189(object):
                         up_info.callback(up_info.path, up_info.size, now_size)
                     if now_size == up_info.size:
                         self._upload_finished_flag = True
-                    logger.debug(f"Upload by client [data]: {up_info.size=}, {now_size=}")
             if up_info.callback:  # 保证迭代完后，两者大小一样
                 up_info.callback(up_info.path, up_info.size, up_info.size)
 
@@ -509,8 +508,8 @@ class Cloud189(object):
 
     def _upload_file_by_client(self, up_info: UpInfo) -> UpCode:
         """使用客户端接口上传单文件，支持秒传功能
-        :params up_info: UpInfo
-        :return:         UpCode
+        :param up_info: UpInfo
+        :return:        UpCode
         """
         if up_info.callback and up_info.check:
             up_info.callback(up_info.path, 1, 0, 'check')
@@ -550,7 +549,7 @@ class Cloud189(object):
 
     def _upload_file_by_web(self, up_info: UpInfo) -> UpCode:
         """使用网页接口上传单文件，不支持秒传
-        :params up_info: UpInfo
+        :param up_info: UpInfo
         :return:         UpCode
         """
         headers = {'Referer': self._host_url}
@@ -632,8 +631,14 @@ class Cloud189(object):
                     break
         return up_info
 
-    def upload_file(self, file_path, folder_id=-11, callback=None, force=False) -> UpCode:
-        """上传单个文件接口"""
+    def upload_file(self, file_path, folder_id=-11, force=False, callback=None) -> UpCode:
+        """单个文件上传接口
+        :param str file_path: 待上传文件路径
+        :param int folder_id: 上传目录 id
+        :param bool force: 强制上传已经存在的文件(文件名、大小一致的文件)
+        :param func callback: 上传进度回调
+        :return: UpCode
+        """
         if not os.path.isfile(file_path):
             logger.error(f"Upload file: [{file_path}] is not a file!")
             return UpCode(code=Cloud189.PATH_ERROR, path=file_path)
@@ -643,22 +648,28 @@ class Cloud189(object):
         up_info = self._check_up_file_exist(UpInfo(name=file_name, path=file_path, size=file_size,
                                                    fid=str(folder_id), force=force, callback=callback))
         if not force and up_info.exist:
-            logging.debug(f"Abandon upload because the file is already exist: {file_path=}")
+            logger.debug(f"Abandon upload because the file is already exist: {file_path=}")
             if up_info.callback:
                 up_info.callback(up_info.path, 1, 1, 'exist')
             return UpCode(code=Cloud189.SUCCESS, id=up_info.id, path=file_path)
         elif self._sessionKey and self._sessionSecret and self._accessToken:
-            logging.debug(f"Use the client interface to upload files: {file_path=}, {folder_id=}")
+            logger.debug(f"Use the client interface to upload files: {file_path=}, {folder_id=}")
             return self._upload_file_by_client(up_info)
         else:
-            logging.debug(f"Use the web interface to upload files: {file_path=}, {folder_id=}")
+            logger.debug(f"Use the web interface to upload files: {file_path=}, {folder_id=}")
             return self._upload_file_by_web(up_info)
 
-    def upload_dir(self, folder_path, parrent_fid=-11, callback=None, force=False, mkdir=True):
-        """上传文件夹接口
-        :params force: 强制上传已经存在的文件(文件名、大小一致的文件)
-        :params mkdir: 是否在 parrent_fid 创建父文件夹
-        :return:       UpCode list  or  Cloud189 error code(mkdir error)
+    def upload_dir(self, folder_path, parrent_fid=-11, force=False, mkdir=True, callback=None,
+                   failed_callback=None, up_handler= None):
+        """文件夹上传接口
+        :param str file_path: 待上传文件路径
+        :param int folder_id: 上传目录 id
+        :param bool force: 强制上传已经存在的文件(文件名、大小一致的文件)
+        :param bool mkdir: 是否在 parrent_fid 创建父文件夹
+        :param func callback: 上传进度回调
+        :param func failed_callback: 错误回调
+        :param func up_handler: 上传文件数回调
+        :return: UpCode list  or  Cloud189 error code(mkdir error)
         """
         if not os.path.isdir(folder_path):
             logger.error(f"Upload dir: [{folder_path}] is not a file")
@@ -671,7 +682,7 @@ class Cloud189(object):
         if mkdir:
             result = self.mkdir(parrent_fid, folder_name)
             if result.code != Cloud189.SUCCESS:
-                return result.code
+                return result  # MkCode
 
             dir_dict[folder_name] = result.id
         else:
@@ -695,15 +706,22 @@ class Cloud189(object):
                 if result.code != Cloud189.SUCCESS:
                     logger.error(
                         f"Upload dir: create a folder in the upload sub folder{dir_rname=} failed! {folder_name=}, {dir_dict[p_rfolder]=}")
-                    return result.code
+                    return result  # MkCode
                 logger.debug(
                     f"Upload dir: folder successfully created {folder_name=}, {dir_dict[p_rfolder]=}, {dir_rname=}, {result.id}")
                 dir_dict[dir_rname] = result.id
         up_codes = []
-        for upload_file in upload_files:
+        total_files = len(upload_files)
+        for index, upload_file in enumerate(upload_files, start=1):
+            if up_handler:
+                up_handler(index, total_files)
             logger.debug(f"Upload dir: file [{upload_file[0]}] enter upload process...")
-            up_code = self.upload_file(upload_file[0], upload_file[1], callback, force)
+            up_code = self.upload_file(upload_file[0], upload_file[1], force=force, callback=callback)
+            if failed_callback and up_code.code != Cloud189.SUCCESS:
+                failed_callback(up_code.code, up_code.path)
+                logger.debug(f"Up Dir Code: {up_code.code=}, {up_code.path=}")
             up_codes.append(up_code)
+            logger.debug(f"Dir: {index=}, {total_files=}")
         return up_codes
 
     def get_file_info_by_id(self, fid) -> (int, FileInfo):
@@ -742,7 +760,7 @@ class Cloud189(object):
         os.environ['LANG'] = 'enUS.UTF-8'
         resp = self._get(durl, stream=True, timeout=None)
         if not resp:
-            logging.error("Download link: network error!")
+            logger.error("Download link: network error!")
             return Cloud189.FAILED
 
         content_d = resp.headers['content-disposition'].encode('latin-1').decode('utf-8')
@@ -792,7 +810,7 @@ class Cloud189(object):
         """通过 fid 下载单个文件"""
         code, infos = self.get_file_info_by_id(fid)
         if code != Cloud189.SUCCESS:
-            logging.error(f"Down by id: 获取文件{fid=}详情失败！")
+            logger.error(f"Down by id: 获取文件{fid=}详情失败！")
             return code
         durl = 'https:' + infos.durl
         return self._down_one_link(durl, save_path, callback)
@@ -818,7 +836,7 @@ class Cloud189(object):
         '''删除文件(夹)'''
         code, infos = self.get_file_info_by_id(fid)
         if code != Cloud189.SUCCESS:
-            logging.error(f"Delete by id: get file's {fid=} details failed!")
+            logger.error(f"Delete by id: get file's {fid=} details failed!")
             return code
 
         return self._batch_task(infos, 'DELETE')
@@ -831,7 +849,7 @@ class Cloud189(object):
         '''复制文件(夹)'''
         code, infos = self.get_file_info_by_id(fid)
         if code != Cloud189.SUCCESS:
-            logging.error(f"Copy by id: get file's {fid=} details failed!")
+            logger.error(f"Copy by id: get file's {fid=} details failed!")
             return code
 
         return self._batch_task(infos, 'COPY')
@@ -842,13 +860,13 @@ class Cloud189(object):
         result = self._get(
             url, params={'parentId': str(parent_id), 'fileName': fname})
         if not result:
-            logging.error("Mkdir: network error!")
+            logger.error("Mkdir: network error!")
             return MkCode(Cloud189.NETWORK_ERROR)
         result = result.json()
         if 'fileId' in result:
             return MkCode(Cloud189.SUCCESS, result['fileId'])
         else:
-            logging.error(f"Mkdir: unknown error {result=}")
+            logger.error(f"Mkdir: unknown error {result=}")
             return MkCode(Cloud189.MKDIR_ERROR)
 
     def rename(self, fid, fname):
@@ -856,7 +874,7 @@ class Cloud189(object):
         url = self._host_url + '/v2/renameFile.action'
         resp = self._get(url, params={'fileId': str(fid), 'fileName': fname})
         if not resp:
-            logging.error("Rename: network error!")
+            logger.error("Rename: network error!")
             return Cloud189.NETWORK_ERROR
         resp = resp.json()
         if 'success' in resp:
@@ -900,8 +918,8 @@ class Cloud189(object):
 
     def list_shared_url(self, stype: int, page: int = 1) -> FileList:
         """列出自己的分享文件、转存的文件链接
-        :params stype:  1 发出的分享，2 收到的分享
-        :params page:   页面，60 条记录一页
+        :param stype:  1 发出的分享，2 收到的分享
+        :param page:   页面，60 条记录一页
         :return:        FileList 类
         """
         get_url = self._host_url + "/v2/listShares.action"

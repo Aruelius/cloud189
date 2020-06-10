@@ -1,3 +1,4 @@
+from cloud189.api import Cloud189
 from cloud189.cli.utils import *
 from cloud189.cli import config
 

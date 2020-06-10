@@ -11,7 +11,10 @@ from datetime import datetime
 from base64 import b64encode
 import rsa
 
-# __all__ = ['logger', 'md5', 'encrypt', 'int2char', 'b64tohex', 'rsa_encode', 'calculate_md5_sign', 'API', 'UA, 'get_gmt_time', 'get_time']
+__all__ = ['logger', 'encrypt', 'b64tohex', 'calculate_hmac_sign',
+           'API', 'UA', 'SUFFIX_PARAM', 'get_time', 'get_file_md5',
+           'get_file_name', 'get_relative_folder', 'get_upload_chunks',
+           'get_chunk_size']
 
 # 调试日志设置
 logger = logging.getLogger('cloud189')
@@ -128,10 +131,6 @@ def get_file_md5(file_path, check=True):
         return hash_md5.upper()
     else:
         return 'random_md5_value'  # TODO: 这里需要返回一个值
-
-
-def get_file_size(file_path):
-    return str(os.path.getsize(file_path))
 
 
 def get_file_name(file_path):
