@@ -49,9 +49,6 @@ class TaskManager(object):
     def __init__(self):
         self._tasks = []
 
-    def __len__(self):
-        return len(self._tasks)
-
     def is_empty(self):
         """任务列表是否为空"""
         return len(self._tasks) == 0
@@ -145,10 +142,10 @@ class TaskManager(object):
                 now_size, total_size, msg = task.get_process()
                 done_files, total_files = task.get_count()
                 OUTPUT_LIST[pid] = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
-                # 文件秒传、出错 没有大小
-                if (msg or now_size >= total_size) and done_files >= total_files:
+                # 文件秒传、出错 没有大小，需要跳过秒传检查 msg
+                if ((msg and msg != 'check') or now_size >= total_size) and done_files >= total_files:
                     TOTAL_TASKS -= 1
-                    logger.debug(f"While Loop Break! {done_files=}, {total_files=}")
+                    logger.debug(f"{pid=} While Loop Break! {msg=}, {TOTAL_TASKS=}, {done_files=}, {total_files=}")
                     while True:
                         if not task.is_alive():
                             OUTPUT_LIST.append(f"[{pid}] finished")
@@ -156,7 +153,6 @@ class TaskManager(object):
                                 OUTPUT_LIST.append(f"[{pid}] Error Messages: {err_msg}")
                             break
                         sleep(1)
-                    logger.debug(f"{pid=} TaskManager: {TOTAL_TASKS=}")
                     # 只有还有一个没有完成, 就不能改 TaskManager.running
                     if TaskManager.running and TOTAL_TASKS < 1:
                         TaskManager.running = False  # 辅助控制 stop_show_task 线程的结束 🤣
@@ -172,7 +168,8 @@ class TaskManager(object):
         global OUTPUT_LIST, TOTAL_TASKS
         with output(output_type="list", initial_len=len(self._tasks), interval=0) as OUTPUT_LIST:
             pool = []
-            TOTAL_TASKS = len(self)
+            TOTAL_TASKS = len(self._tasks)
+            logger.debug(f"TaskManager: {TOTAL_TASKS=}")
             for _pid, task in enumerate(self._tasks):
                 if pid is not None and _pid != pid:  # 如果指定了 pid 就只更新 pid 这个 task
                     continue
