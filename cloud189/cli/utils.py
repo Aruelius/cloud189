@@ -18,10 +18,13 @@ logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 M_platform = platform()
 OS_NAME = os.name
+_ERR = False  # 用于标识是否遇到错误
 
 
 def error(msg):
+    global _ERR
     print(f"\033[1;31mError : {msg}\033[0m")
+    _ERR = True
 
 
 def info(msg):
@@ -234,7 +237,10 @@ def set_completer(choice_list, *, cmd_list=None, condition=None):
 
 def print_logo():
     """输出logo"""
-    clear_screen()
+    if _ERR:  # 有错误就不清屏不打印 logo
+        return None
+    else:
+        clear_screen()
     logo_str = f"""
 #    /$$$$$$  /$$                           /$$   /$$    /$$$$$$   /$$$$$$ 
 #   /$$__  $$| $$                          | $$ /$$$$   /$$__  $$ /$$__  $$
@@ -301,7 +307,6 @@ def print_help():
 
 def check_update():
     """检查更新"""
-    clear_screen()
     print("正在检测更新...")
     api = f"https://api.github.com/repos/{GIT_REPO}/releases/latest"
     tag_name = None
@@ -309,7 +314,7 @@ def check_update():
         resp = requests.get(api, timeout=3).json()
         tag_name, msg = resp['tag_name'], resp['body']
     except (requests.RequestException, AttributeError, KeyError) as err:
-        error(f"检查更新时发生异常\n{err=}")
+        error(f"检查更新时发生异常，可能是 GitHub 间歇性无法访问！\n{err=}")
         return None
     if tag_name:
         ver = version.split('.')

@@ -336,7 +336,12 @@ class Cloud189(object):
             if not resp:
                 logger.error(f"File list: {fid=}network error!")
                 return file_list, path_list
-            resp = resp.json()
+            try:
+                resp = resp.json()
+            except json.JSONDecodeError:
+                # 如果 fid 文件夹被删掉，resp 是 200 但是无法使用 json 方法
+                logger.error(f"File list: {fid=} not exit")
+                return file_list, path_list
             if 'errorCode' in resp:
                 logger.error(f"Get file: {resp}")
                 return file_list, path_list
