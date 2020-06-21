@@ -341,47 +341,51 @@ class Commander:
         """移动文件或文件夹"""
         name = args[0]
         if not name:
-            info('参数：文件(夹)名 [新文件夹名]')
+            info('参数：文件(夹)名 [新文件夹名/id]')
         folder_name = ''
-        if len(args) == 1:
-            file_info = self._file_list.find_by_name(name)
-            if not file_info:
-                error(f"文件(夹)不存在: {name}")
-                return None
-        else:
-            folder_name = args[-1]
-
-        info("正在获取所有文件夹信息，请稍后...")
-        tree_list = self._disk.get_folder_nodes()
-        if not tree_list:
-            error("获取文件夹信息出错，请重试.")
+        target_id = None
+        file_info = self._file_list.find_by_name(name)
+        if not file_info:
+            error(f"文件(夹)不存在: {name}")
             return None
-        if folder_name:
-            if folder := tree_list.find_by_name(folder_name):
-                target_id = folder.id
+        if len(args) > 1:
+            if args[-1].isnumeric():
+                target_id = args[-1]
             else:
-                error(f"文件夹 {folder_name} 不存在！")
+                folder_name = args[-1]
+        if not target_id:
+            info("正在获取所有文件夹信息，请稍后...")
+            tree_list = self._disk.get_folder_nodes()
+            if not tree_list:
+                error("获取文件夹信息出错，请重试.")
                 return None
-        else:
-            tree_dict = tree_list.get_path_id()
-            choice_list = list(tree_dict.keys())
+            if folder_name:
+                if folder := tree_list.find_by_name(folder_name):
+                    target_id = folder.id
+                else:
+                    error(f"文件夹 {folder_name} 不存在！")
+                    return None
+            else:
+                tree_dict = tree_list.get_path_id()
+                choice_list = list(tree_dict.keys())
 
-            def _condition(typed_str, choice_str):
-                path_depth = len(choice_str.split('/'))
-                # 没有输入时, 补全 Cloud189,深度 1
-                if not typed_str and path_depth == 1:
-                    return True
-                # Cloud189/ 深度为 2,补全同深度的文件夹 Cloud189/test 、Cloud189/txt
-                # Cloud189/tx 应该补全 Cloud189/txt
-                if path_depth == len(typed_str.split('/')) and choice_str.startswith(typed_str):
-                    return True
+                def _condition(typed_str, choice_str):
+                    path_depth = len(choice_str.split('/'))
+                    # 没有输入时, 补全 Cloud189,深度 1
+                    if not typed_str and path_depth == 1:
+                        return True
+                    # Cloud189/ 深度为 2,补全同深度的文件夹 Cloud189/test 、Cloud189/txt
+                    # Cloud189/tx 应该补全 Cloud189/txt
+                    if path_depth == len(typed_str.split('/')) and choice_str.startswith(typed_str):
+                        return True
 
-            set_completer(choice_list, condition=_condition)
-            choice = input('请输入路径(TAB键补全) : ')
-            if not choice or choice not in choice_list:
-                error(f"目标路径不存在: {choice}")
-                return None
-            target_id = tree_dict.get(choice)
+                set_completer(choice_list, condition=_condition)
+                choice = input('请输入路径(TAB键补全) : ')
+                if not choice or choice not in choice_list:
+                    error(f"目标路径不存在: {choice}")
+                    return None
+                target_id = tree_dict.get(choice)
+
         if self._disk.move_file(file_info, target_id) == Cloud189.SUCCESS:
             self._file_list.pop_by_id(file_info.id)
         else:
@@ -517,7 +521,7 @@ class Commander:
 
     def sign(self, args):
         """签到 + 抽奖"""
-        if '-a' in args or '--auto' in args:
+        if '-a' in args or '--all' in args:
             old_user = self.who()
             for user in config.get_users_name():
                 self.su([user, ])
