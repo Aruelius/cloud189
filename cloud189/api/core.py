@@ -402,7 +402,7 @@ class Cloud189(object):
                 "resumePolicy": 1,
                 "isLog": 0
             }
-            resp = requests.post(url, headers=headers, data=post_data, timeout=10)
+            resp = requests.post(url, headers=headers, data=post_data, verify=False, timeout=10)
             if resp:
                 resp = resp.json()
                 if resp['res_message'] == "UserDayFlowOverLimited":
@@ -466,7 +466,7 @@ class Cloud189(object):
             chunks = get_upload_chunks(f, chunk_size)
             post_data = _call_back(chunks, chunk_size)
 
-            resp = requests.put(url, data=post_data, headers=headers)
+            resp = requests.put(url, data=post_data, headers=headers, verify=False, timeout=None)
             if resp.text != "":
                 node = ElementTree.XML(resp.text)
                 if node.text == "error":
@@ -498,7 +498,7 @@ class Cloud189(object):
                 "isLog": 0,
                 "ResumePolicy": 1
             }
-            resp = requests.post(url, data=post_data, headers=headers, timeout=10)
+            resp = requests.post(url, data=post_data, headers=headers, verify=False, timeout=10)
             node = ElementTree.XML(resp.text)
             if node.text != 'error':
                 fid = node.findtext('id')
@@ -984,7 +984,7 @@ class Cloud189(object):
                 'pageNum': page,
                 'pageSize': 60
             }
-            resp = requests.get(info_url, params=params, headers=self._headers)
+            resp = requests.get(info_url, params=params, headers=self._headers, verify=False)
             if not resp:
                 return None
             resp = resp.json()
@@ -1009,7 +1009,7 @@ class Cloud189(object):
             'fileVO.id': share_id,
             'accessCode': pwd
         }
-        resp = requests.get(verify_url, params=params)
+        resp = requests.get(verify_url, params=params, verify=False)
         if not resp:
             return None
         resp = resp.json()
@@ -1027,7 +1027,7 @@ class Cloud189(object):
     def get_file_info_by_url(self, share_url, pwd=''):
         """通过分享链接获取信息"""
 
-        first_page = requests.get(share_url, headers=self._headers)
+        first_page = requests.get(share_url, headers=self._headers, verify=False)
         if not first_page:
             logger.error("File info: network error!")
             return None
@@ -1061,7 +1061,7 @@ class Cloud189(object):
         headers = {
             'SessionKey': self._sessionKey
         }
-        resp = requests.get(sign_url, headers=headers)
+        resp = requests.get(sign_url, headers=headers, verify=False)
         if not resp:
             logger.error("Sign: network error!")
         if resp.status_code != requests.codes.ok:
