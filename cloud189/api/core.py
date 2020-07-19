@@ -92,16 +92,6 @@ class Cloud189(object):
     def get_cookie(self):
         return self._session.cookies.get_dict()
 
-    def _redirect(self):
-        r = self._get(self._host_url
-                      + "/udb/udb_login.jsp?pageId=1&redirectURL=/main.action")
-        captchaToken = re.findall(r"captchaToken' value='(.+?)'", r.text)[0]
-        lt = re.findall(r'lt = "(.+?)"', r.text)[0]
-        returnUrl = re.findall(r"returnUrl = '(.+?)'", r.text)[0]
-        paramId = re.findall(r'paramId = "(.+?)"', r.text)[0]
-        self._session.headers.update({"lt": lt})
-        return captchaToken, returnUrl, paramId
-
     def _needcaptcha(self, captchaToken, username):
         """登录验证码处理函数"""
         url = self._auth_url + "needcaptcha.do"
@@ -141,7 +131,28 @@ class Cloud189(object):
 
     def login(self, username, password):
         """使用 用户名+密码 登录"""
-        captchaToken, returnUrl, paramId = self._redirect()
+        url = self._host_url + "/udb/udb_login.jsp"
+        params = {"pageId": 1, "redirectURL": "/main.action"}
+        resp = self._get(url, params=params)
+        if not resp:
+            logger.error("redirect error!")
+            return Cloud189.NETWORK_ERROR
+        # captchaToken = re.search(r"captchaToken' value='(.+?)'", resp.text)
+        captchaToken = re.search(r"captchaToken\W*value=\W*(\w*)", resp.text)
+        # returnUrl = re.search(r"returnUrl = '(.+?)'", resp.text)
+        returnUrl = re.search(r"returnUrl =\W*([^'\"]*)", resp.text)
+        # paramId = re.search(r'paramId *=\W*(\w*)', resp.text)
+        paramId = re.search(r'paramId =\W*(\w*)', resp.text)
+        # lt = re.search(r'lt = "(.+?)"', resp.text)
+        lt = re.search(r'lt =\W+(\w*)', resp.text)
+
+        captchaToken = captchaToken.group(1) if captchaToken else ""
+        lt = lt.group(1) if lt else ""
+        returnUrl = returnUrl.group(1) if returnUrl else ""
+        paramId = paramId.group(1) if paramId else ""
+        logger.debug(f"Login: {captchaToken=}, {lt=}, {returnUrl=}, {paramId=}")
+        self._session.headers.update({"lt": lt})
+
         validateCode = self._needcaptcha(captchaToken, username)
         url = self._auth_url + "loginSubmit.do"
         data = {
