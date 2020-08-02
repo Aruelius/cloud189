@@ -1,5 +1,5 @@
 from threading import Thread
-from time import sleep, monotonic
+from time import time, sleep, monotonic
 
 from cloud189.cli.downloader import TaskType
 from cloud189.cli.utils import info, error, get_file_size_str, OS_NAME, get_upload_status
@@ -43,11 +43,20 @@ def input_with_timeout(timeout=2):
         raise TimeoutExpired
 
 
+def sizeof_fmt(num, suffix='B'):
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%6.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%6.1f%s%s" % (num, 'Yi', suffix)
+
+
 class TaskManager(object):
     """下载/上传任务管理器"""
 
     def __init__(self):
         self._tasks = []
+        self._last_updated = {}
 
     def is_empty(self):
         """任务列表是否为空"""
@@ -80,13 +89,19 @@ class TaskManager(object):
         self._tasks.append(task)
         task.start()
 
-    @staticmethod
-    def _size_to_msg(now_size, total_size, msg, pid, task) -> str:
+    def _size_to_msg(self, now_size, total_size, msg, pid, task) -> str:
+        now = time()
+        if pid not in self._last_updated:
+            self._last_updated[pid] = now
+            speed = 0
+        else:
+            speed = now_size / (now - self._last_updated[pid])
+        
         """任务详情可视化"""
         if total_size == -1:  # zip 打包下载
             percent = get_file_size_str(now_size)
         else:
-            percent = "{:7.1f}%".format(now_size / total_size * 100)
+            percent = "{:8.1%}".format(now_size / total_size)
         has_error = len(task.get_err_msg()) != 0
         if task.is_alive():  # 任务执行中
             if now_size >= total_size:  # 有可能 thread 关闭不及时
@@ -96,7 +111,7 @@ class TaskManager(object):
         elif not task.is_alive() and has_error:  # 任务执行完成, 但是有错误信息
             status = '\033[1;31mError   \033[0m'
         else:  # 任务正常执行完成
-            percent = "{:7.1f}%".format(100)  # 可能更新不及时
+            percent = "{:8.1%}".format(1)  # 可能更新不及时
             status = '\033[1;34mFinished\033[0m'
         if task.get_task_type() == TaskType.DOWNLOAD:
             d_arg, f_name = task.get_cmd_info()
@@ -107,12 +122,12 @@ class TaskManager(object):
             done_files, total_files = task.get_count()
             count = f" ({done_files}/{total_files})" if total_files > 0 else ""
             proc = get_upload_status(msg, percent)
-            result = f"[{pid}] Status: {status} | Process:{proc} | Upload: {up_path}{count} -> {folder_name}"
+            result = f"[{pid}] Status: {status} | Process:{proc} | Speed: {sizeof_fmt(speed)}/s | Upload: {up_path}{count} -> {folder_name}"
 
         return result
 
-    @staticmethod
-    def _show_task(pid, task, follow=False):
+
+    def _show_task(self, pid, task, follow=False):
         TaskManager.running = True  # 相当于每次执行 jobs -f 都初始化
         # TOTAL_TASKS 用于标记还没完成的任务数量
         global OUTPUT_LIST, TOTAL_TASKS
@@ -141,7 +156,7 @@ class TaskManager(object):
             if follow:
                 now_size, total_size, msg = task.get_process()
                 done_files, total_files = task.get_count()
-                OUTPUT_LIST[pid] = TaskManager._size_to_msg(now_size, total_size, msg, pid, task)
+                OUTPUT_LIST[pid] = self._size_to_msg(now_size, total_size, msg, pid, task)
                 # 文件秒传、出错 没有大小，需要跳过秒传检查 msg
                 if ((msg and msg != 'check') or now_size >= total_size) and done_files >= total_files:
                     TOTAL_TASKS -= 1
@@ -160,7 +175,7 @@ class TaskManager(object):
                     break
                 sleep(1)
             else:
-                print(TaskManager._size_to_msg(now_size, total_size, msg, pid, task))
+                print(self._size_to_msg(now_size, total_size, msg, pid, task))
                 break  # 非实时显示模式，直接结束
 
     def _show_task_bar(self, pid=None, follow=False):
