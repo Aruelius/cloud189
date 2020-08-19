@@ -5,6 +5,7 @@
 import os
 import re
 import json
+import simplejson
 from time import sleep
 
 from xml.etree import ElementTree
@@ -349,7 +350,7 @@ class Cloud189(object):
                 return file_list, path_list
             try:
                 resp = resp.json()
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, simplejson.errors.JSONDecodeError):
                 # 如果 fid 文件夹被删掉，resp 是 200 但是无法使用 json 方法
                 logger.error(f"File list: {fid=} not exit")
                 return file_list, path_list

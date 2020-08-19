@@ -3,7 +3,6 @@ API 处理网页数据、数据切片时使用的工具
 """
 
 import os
-import sys
 import logging
 import hmac
 import hashlib
@@ -16,9 +15,12 @@ __all__ = ['logger', 'encrypt', 'b64tohex', 'calculate_hmac_sign',
            'get_file_name', 'get_relative_folder', 'get_upload_chunks',
            'get_chunk_size']
 
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(os.path.dirname(ROOT_DIR))
+
 # 调试日志设置
 logger = logging.getLogger('cloud189')
-log_file = os.path.dirname(sys.argv[0]) + os.sep + 'debug-cloud189.log'
+log_file = ROOT_DIR + os.sep + 'debug-cloud189.log'
 fmt_str = "%(asctime)s [%(filename)s:%(lineno)d] %(funcName)s %(levelname)s - %(message)s"
 logging.basicConfig(level=logging.DEBUG,
                     filename=log_file,

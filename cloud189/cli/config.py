@@ -1,11 +1,11 @@
 import os
-import sys
 from pickle import load, dump
+from cloud189.api.utils import ROOT_DIR
 
 
 __all__ = ['config']
 KEY = 152
-config_file = os.path.dirname(sys.argv[0]) + os.sep + '.config'
+config_file = ROOT_DIR + os.sep + '.config'
 
 
 def encrypt(key, s):
