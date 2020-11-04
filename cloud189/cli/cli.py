@@ -112,7 +112,7 @@ class Commander:
             return None
         elif code == Cloud189.FAILED:
             error('登录失败,用户名或密码错误 :(')
-            return None
+            os._exit(0)
         # 登录成功保存用户 cookie
         config.username = username
         config.password = password
