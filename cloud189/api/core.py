@@ -132,8 +132,8 @@ class Cloud189(object):
 
     def login(self, username, password):
         """使用 用户名+密码 登录"""
-        url = self._host_url + "/udb/udb_login.jsp"
-        params = {"pageId": 1, "redirectURL": "/main.action"}
+        url = self._host_url + "/api/portal/loginUrl.action"
+        params = {"pageId": 1, "redirectURL": "https://cloud.189.cn/main.action"}
         resp = self._get(url, params=params)
         if not resp:
             logger.error("redirect error!")
