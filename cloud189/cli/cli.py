@@ -78,7 +78,11 @@ class Commander:
     def refresh(self, dir_id=None, auto=False):
         """刷新当前文件夹和路径信息"""
         dir_id = self._work_id if dir_id is None else dir_id
-        self._file_list, self._path_list = self._disk.get_file_list(dir_id)
+
+        if dir_id == -11:
+            self._file_list, self._path_list = self._disk.get_root_file_list()
+        else:
+            self._file_list, self._path_list = self._disk.get_file_list(dir_id)
         if not self._file_list and not self._path_list:
             if auto:
                 error(f"文件夹 id={dir_id} 无效(被删除), 将切换到根目录！")

@@ -52,6 +52,7 @@ class Cloud189(object):
         self._headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/76.0',
             'Referer': 'https://open.e.189.cn/',
+            'Accept': 'application/json;charset=UTF-8',
         }
         disable_warnings(InsecureRequestWarning)  # 全局禁用 SSL 警告
 
@@ -175,7 +176,7 @@ class Cloud189(object):
         print(msg)
         return Cloud189.FAILED
 
-    def _get_more_page(self, resp: dict, r_path=False) -> (list, bool):
+    def _get_root_more_page(self, resp: dict, r_path=False) -> (list, bool):
         """处理可能需要翻页的请求信息"""
         if resp['pageNum'] * resp['pageSize'] >= resp['recordCount']:
             done = True  # 没有了
@@ -185,6 +186,10 @@ class Cloud189(object):
             return [resp['data'], resp['path']], done
         else:
             return resp['data'], done
+
+    def _get_more_page(self, resp: dict, pageNum=1, pageSize=60) -> (bool):
+        """处理可能需要翻页的请求信息"""
+        return pageNum * pageSize >= resp['count']
 
     def get_rec_file_list(self) -> FileList:
         """获取回收站文件夹列表"""
@@ -326,25 +331,25 @@ class Cloud189(object):
         pwd = resp['accessCode'] if 'accessCode' in resp else ''
         return ShareCode(Cloud189.SUCCESS, share_url, pwd, expireTime)
 
-    def get_file_list(self, fid) -> (FileList, PathList):
-        """获取文件列表"""
+    def get_root_file_list(self) -> (FileList, PathList):
+        """获取根目录下文件列表的方法"""
+        fid = -11
         file_list = FileList()
         path_list = PathList()
         page = 1
         data_path = []
         data = []
         path = []
-        url = self._host_url + "/v2/listFiles.action"
+        url = self._host_url + "/api/portal/listFiles.action"
         while True:
             params = {
                 "fileId": str(fid),
-                "inGroupSpace": "false",
-                "orderBy": "1",
-                "order": "ASC",
-                "pageNum": page,
-                "pageSize": 60
+                "noCache": "0.9551043190321311"
             }
             resp = self._get(url, params=params)
+            if not resp:
+                logger.error(f"File list: {fid=}network error!")
+                return file_list, path_list
             if not resp:
                 logger.error(f"File list: {fid=}network error!")
                 return file_list, path_list
@@ -357,7 +362,7 @@ class Cloud189(object):
             if 'errorCode' in resp:
                 logger.error(f"Get file: {resp}")
                 return file_list, path_list
-            data_, done = self._get_more_page(resp, r_path=True)
+            data_, done = self._get_root_more_page(resp, r_path=True)
             data_path.append(data_)
             if done:
                 break
@@ -366,7 +371,7 @@ class Cloud189(object):
         for data_ in data_path:
             data.extend(data_[0])
             if not path:
-                path = data_[1]  # 不同 page 路径因该是一样的
+                path = data_[1]  # 不同 page 路径应该是一样的
         for item in data:
             name = item['fileName']
             id_ = int(item['fileId'])
@@ -385,6 +390,82 @@ class Cloud189(object):
                                       isCoShare=item['isCoShare']))
 
         return file_list, path_list
+
+
+    def get_file_list(self, fid) -> (FileList):
+        """获取文件列表"""
+        file_list = FileList()
+        path_list = PathList()
+        page = 1
+        data = []
+        url = self._host_url + "/api/open/file/listFiles.action"
+        while True:
+            params = {
+                "folderId": str(fid),
+                "orderBy": "lastOpTime",
+                "descending": "true",
+                "pageNum": page,
+                "pageSize": 60,
+                "iconOption": 5,
+                "mediaType": 0,
+                "noCache": "0.10860476256694767"
+            }
+            resp = self._get(url, params=params)
+            if not resp:
+                logger.error(f"File list: {fid=}network error!")
+                return file_list, path_list
+            try:
+                resp = resp.json()
+            except (json.JSONDecodeError, simplejson.errors.JSONDecodeError):
+                # 如果 fid 文件夹被删掉，resp 是 200 但是无法使用 json 方法
+                logger.error(f"File list: {fid=} not exit")
+                return file_list, path_list
+            if 'errorCode' in resp:
+                logger.error(f"Get file: {resp}")
+                return file_list, path_list
+            resp = resp["fileListAO"]
+            done = self._get_more_page(resp, pageNum=page, pageSize=60)
+            data.extend(resp["folderList"])
+            data.extend(resp["fileList"])
+            if done:
+                break
+            page += 1 # 继续循环处理翻页
+            sleep(0.5)  # 大量请求可能会被限制
+
+        for item in data:
+            name = item['name']
+            id_ = int(item['id'])
+            pid = int(item['parentId']) if 'parentId' in item else ''
+            ctime = item['createDate']
+            optime = item['lastOpTime']
+            size = item['size'] if 'size' in item else ''
+            ftype = ''
+            durl = ''
+            isFolder = 'fileCount' in item
+            isStarred = ''
+
+            file_list.append(FileInfo(name=name, id=id_, pid=pid, ctime=ctime, optime=optime, size=size,
+                                      ftype=ftype, durl=durl, isFolder=isFolder, isStarred=isStarred))
+
+        return file_list, self.get_file_path_list(fid)
+
+    def get_file_path_list(self, fid) -> (PathList):
+        path_list = PathList()
+        travel_id = fid
+        while True:
+            code, cur_file_info = self.get_file_info_by_id(travel_id)
+            if code != Cloud189.SUCCESS:
+                logger.error(f"Get File{fid} info error.")
+                return None
+            path_list.insert(0, PathInfo(name=cur_file_info.name, id=cur_file_info.id, isCoShare=0))
+            travel_id = cur_file_info.pid
+            if travel_id == -11:
+                # 根目录无法通过查询文件信息查询，会返回400，因此直接拼装
+                path_list.insert(0, PathInfo(name='全部文件', id=-11, isCoShare=0))
+                break
+            sleep(0.2)
+
+        return path_list
 
     def _create_upload_file(self, up_info: UpInfo) -> (int, tuple):
         """创建上传任务，包含秒传检查，返回状态码、创建信息"""
@@ -760,7 +841,7 @@ class Cloud189(object):
         pid = int(resp['parentId'])
         ctime = resp['createTime']
         optime = resp['lastOpTime']
-        size = resp['fileSize']
+        size = resp['fileSize'] if 'fileSize' in resp else ''
         ftype = resp['fileType']
         isFolder = resp['isFolder']
         account = resp['createAccount']
